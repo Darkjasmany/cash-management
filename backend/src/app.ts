@@ -1,9 +1,10 @@
 import cors from "cors";
 import express, { Application } from "express";
 import helmet from "helmet";
-import { errorMiddleware } from "./middlewares/error.middleware.js";
-import adminRouter from "./modules/admin/admin.router.js";
-import authRouter from "./modules/auth/auth.router.js";
+import { errorMiddleware } from "./middlewares/error.middleware";
+import adminRouter from "./modules/admin/admin.router";
+import authRouter from "./modules/auth/auth.router";
+import cutRouter from "./modules/cut/cut.router";
 
 const app: Application = express();
 
@@ -43,6 +44,7 @@ app.get("/health", (_req, res) => {
 // Rutas
 app.use("/api/auth", authRouter);
 app.use("/api/admin/users", adminRouter);
+app.use("/api/cut", cutRouter);
 
 app.use(errorMiddleware);
 
