@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enum para el rol del usuario ───────────────────────────
+enum Role {
+  ADMIN
+  ORGANIZER
+}
+
+// ─── Usuario ─────────────────────────────────────
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(ORGANIZER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("usuario")
+}
+
+// ─── Enum para el estado del corte ───────────────────────────
+enum EstadoCorte {
+  ACTIVO
+  INACTIVO
+}
+
+// ─── Parámetros de corte ─────────────────────────────────────
+model ParametrosCorte {
+  id            Int         @id @default(autoincrement())
+  fechaCorte    DateTime    @db.Date
+  estado        EstadoCorte @default(ACTIVO)
+  creadoPor     Int // id del usuario (de tu sistema FutbolSystem/SIIM)
+  nombreUsuario String // nombre para mostrar sin FK cross-app
+  creadoEn      DateTime    @default(now())
+
+  deudas DeudaBanco[]
+
+  @@map("parametros_corte")
+}
+
+// ─── Deuda consolidada por cliente (1 fila por cliente) ──────
+model DeudaBanco {
+  id          Int             @id @default(autoincrement())
+  idParametro Int
+  parametro   ParametrosCorte @relation(fields: [idParametro], references: [id], onDelete: Cascade)
+
+  // Columnas del formato Banco de Pichincha
+  tipo          String @default("CO") // Siempre CO
+  contrapartida Int // 1=CNB,2=Ventanilla,3=APP,4=WEB
+  moneda        String @default("USD") // Siempre USD
+  valor         Int // Centavos: 123.90 → 12390
+  formaCobro    String @default("REC") // Siempre REC
+  referencia    String @default("") // Clave catastral o referencia
+  tipoId        String // C=cedula R=ruc P=pasaporte
+  numeroId      String // Número del documento
+  nombreCliente String // APELLIDO NOMBRE
+
+  // Campos extra para el Excel / trazabilidad
+  idCliente    Int
+  totalDecimal Decimal @db.Decimal(10, 2) // Valor legible (ej: 123.90)
+
+  @@map("deuda_banco")
+}
