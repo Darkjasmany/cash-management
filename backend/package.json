@@ -1,12 +1,12 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Sistema de Cash-Management",
+  "main": "dist/server.js",
+  "main1": "index.js",
   "scripts": {
     "dev": "tsx --env-file=.env --watch src/server.ts",
-    "build": "tsc",
-    "build1": "tsup src/server.ts --format esm --clean --sourcemap",
+    "build": "tsup src/server.ts --format esm --clean --sourcemap",
     "start": "node --env-file=.env ./dist/server.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -20,7 +20,6 @@
   "keywords": [],
   "author": "Jasmany Franco Peralta",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",

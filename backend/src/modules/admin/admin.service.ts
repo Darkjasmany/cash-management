@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/db.js";
-import { AppError } from "@/middlewares/error.middleware.js";
+import { prisma } from "@/lib/db";
+import { AppError } from "@/middlewares/error.middleware";
 import bcrypt from "bcryptjs";
 import { ChangePasswordInput, CreateUserInput, UpdateUserInput } from "./admin.shema.js";
 

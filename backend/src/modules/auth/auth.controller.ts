@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import { LoginInput, RegisterInput } from "./auth.schema.js";
-import { AuthService } from "./auth.service.js";
+import { LoginInput, RegisterInput } from "./auth.schema";
+import { AuthService } from "./auth.service";
 
 export class AuthController {
   static login = async (req: Request<{}, {}, LoginInput>, res: Response, next: NextFunction) => {

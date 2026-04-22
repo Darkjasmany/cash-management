@@ -1,9 +1,9 @@
 // import { AppError } from "@/middlewares/error.middleware";
-import { AppError } from "@/middlewares/error.middleware.js";
+import { AppError } from "@/middlewares/error.middleware";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { prisma } from "../../lib/db.js";
-import { LoginInput, RegisterInput } from "./auth.schema.js";
+import { prisma } from "../../lib/db";
+import { LoginInput, RegisterInput } from "./auth.schema";
 
 // Tipo del payload del JWT
 export type JwtPayload = {
