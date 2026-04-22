@@ -1,6 +1,9 @@
 import cors from "cors";
 import express, { Application } from "express";
 import helmet from "helmet";
+import { errorMiddleware } from "./middlewares/error.middleware.js";
+import adminRouter from "./modules/admin/admin.router.js";
+import authRouter from "./modules/auth/auth.router.js";
 
 const app: Application = express();
 
@@ -36,5 +39,11 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
+
+// Rutas
+app.use("/api/auth", authRouter);
+app.use("/api/admin/users", adminRouter);
+
+app.use(errorMiddleware);
 
 export default app;
