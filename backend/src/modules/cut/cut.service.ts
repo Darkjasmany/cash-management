@@ -41,14 +41,15 @@ export class CutService {
     });
 
     // 3. Elimina deudas del corte anterior (el nuevo aún no tiene)
+    //    (las deudas de cortes INACTIVOS se borran para no acumular)
     await prisma.deudaBanco.deleteMany({
       where: {
         parametro: { estado: "INACTIVO" },
       },
     });
 
-    //    (las deudas de cortes INACTIVOS se borran para no acumular)
     // 4. Consulta el SIIM
+
     // 5. Para cada fila, calcula intereses y construye registro
     // 6. Guarda en BD propia (batch insert)
   }
