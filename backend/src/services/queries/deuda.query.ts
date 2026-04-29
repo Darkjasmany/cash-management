@@ -1,6 +1,9 @@
--- Consulta unificada para obtener deudas por cliente en los módulos de Catastro Urbano, Catastro Rural y Agua Potable NO INCLUYE CARTAS DE COACTIVA
-
-SELECT
+export const GET_DEUDAS_SIIM_SQL = (
+  fechaStr: string,
+  modulos: { urbano: number; rural: number; agua: number }
+) => {
+  return `
+    SELECT
     t.id_cliente,
     t.cedula,
     t.tipo_id,
@@ -8,32 +11,26 @@ SELECT
     t.id_modulo,
     -- Columna CONTRA PARTIDA (Clave para predios, Cuenta para Agua)
     CASE 
-        WHEN t.id_modulo IN (1, 2) THEN t.base_referencia 
-        WHEN t.id_modulo = 3 THEN 'Cuenta: ' || t.base_referencia
+        WHEN t.id_modulo IN (${modulos.urbano}, ${modulos.rural}) THEN t.base_referencia 
+        WHEN t.id_modulo = ${modulos.agua} THEN t.base_referencia
         ELSE t.base_referencia
     END AS contrapartida,
     -- Columna REFERENCIA (Años para predios, Detalle completo para Agua)
     CASE 
-        WHEN t.id_modulo = 1 THEN 'Catastro urbano. Años: ' || STRING_AGG(DISTINCT t.periodo, ', ' ORDER BY t.periodo)
-        WHEN t.id_modulo = 2 THEN 'Catastro rural. Años: ' || STRING_AGG(DISTINCT t.periodo, ', ' ORDER BY t.periodo)
-        WHEN t.id_modulo = 3 THEN 'Módulo de AA.PP. Medidor: ' || t.extra_info_2 || ' Ruta: ' || t.extra_info_1 || ' Emisiones: ' || STRING_AGG(DISTINCT t.periodo, ', ')
+        WHEN t.id_modulo = ${modulos.urbano} THEN 'Catastro urbano. Años: ' || STRING_AGG(DISTINCT t.periodo, ', ' ORDER BY t.periodo)
+        WHEN t.id_modulo = ${modulos.rural} THEN 'Catastro rural. Años: ' || STRING_AGG(DISTINCT t.periodo, ', ' ORDER BY t.periodo)
+        WHEN t.id_modulo = ${modulos.agua} THEN 'Módulo de AA.PP. Medidor: ' || t.extra_info_2 || ' Ruta: ' || t.extra_info_1 || ' Emisiones: ' || STRING_AGG(DISTINCT t.periodo, ', ')
         ELSE t.base_referencia
     END AS referencia,
     ROUND(SUM(t.valor)::numeric, 2) AS total_deuda,
     MAX(t.fecha_emision) AS fecha_emision_max
 FROM (
     -- ── CATASTRO URBANO (Módulo 1) ──────────────────────────
-    SELECT
-        c.id AS id_cliente,
-        c.cedula,
-        CASE  
-            WHEN LENGTH(TRIM(c.cedula)) = 10 THEN 'C'
-            WHEN LENGTH(TRIM(c.cedula)) = 13 THEN 'R'
-            ELSE 'P'
-        END AS tipo_id,
+  SELECT
+        c.id AS id_cliente, c.cedula,
+        CASE WHEN LENGTH(TRIM(c.cedula)) = 10 THEN 'C' WHEN LENGTH(TRIM(c.cedula)) = 13 THEN 'R' ELSE 'P' END AS tipo_id,
         TRIM(c.apellido || ' ' || c.nombre) AS nombre_cliente,
-        f.id_modulo,
-        fd."fechaCreacion" AS fecha_emision,
+        f.id_modulo, fd."fechaCreacion" AS fecha_emision,
         EXTRACT(YEAR FROM fd."fechaCreacion")::text AS periodo,
         ROUND((fd.cantidad * fd."valorUnitario")::numeric, 2) AS valor,
         COALESCE(
@@ -45,38 +42,35 @@ FROM (
              AND pre.id = la.id_predio
           ), ''
         ) AS base_referencia,
-        '' AS extra_info_1,
-        '' AS extra_info_2
+        '' AS extra_info_1, '' AS extra_info_2
     FROM factura f
     JOIN factura_detalle fd ON fd.id_factura = f.id
     JOIN rubro r ON r.id = fd.id_rubro
     JOIN cliente c ON c.id = f."idPropietarioEmision"
     JOIN liquidacion_avaluo la ON la.id_factura = f.id
-    WHERE f.id_modulo = 1
-      -- Filtro de Cédula Válida
-      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000', '000000000', '0000000000', '0000000000000') 
+    WHERE f.id_modulo = ${modulos.urbano}
+      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000', '000000000', '0000000000', '9999999999999') 
       AND LENGTH(TRIM(c.cedula)) >= 10
       AND fd."valorUnitario" <> 0 AND r.id_rubro_tipo <> 6
-      AND fd."fechaCreacion" <= '2026-04-27'
+      AND fd."fechaCreacion" <= '${fechaStr}'
       AND f."convenioPago" = 0
-      AND ((f.estado = 1 AND fd.estado = 1) OR (f.estado = 0 AND f."fechaEliminacion" > '2026-04-27' AND fd.estado = 0))
-      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '2026-04-27'))
-      -- Filtro de exclusión por Coactiva
+      AND ((f.estado = 1 AND fd.estado = 1) OR (f.estado = 0 AND f."fechaEliminacion" > '${fechaStr}' AND fd.estado = 0))
+      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '${fechaStr}'))
+      -- BLOQUEO TOTAL SI EL PREDIO TIENE ALGUNA FACTURA EN COACTIVA
       AND NOT EXISTS (
-          SELECT 1 FROM coactiva_factura cf 
-          INNER JOIN coactiva ca ON ca.id = cf.id_coactiva 
-          WHERE cf.id_factura = f.id AND ca.estado = 1
+          SELECT 1 FROM liquidacion_avaluo la2
+          INNER JOIN coactiva_factura cf ON cf.id_factura = la2.id_factura
+          INNER JOIN coactiva ca ON ca.id = cf.id_coactiva
+          WHERE la2.id_predio = la.id_predio AND ca.estado = 1
       )
 
     UNION ALL
-
     -- ── CATASTRO RURAL (Módulo 2) ───────────────────────────
-   SELECT
+  SELECT
         c.id, c.cedula,
         CASE WHEN LENGTH(TRIM(c.cedula)) = 10 THEN 'C' WHEN LENGTH(TRIM(c.cedula)) = 13 THEN 'R' ELSE 'P' END,
         TRIM(c.apellido || ' ' || c.nombre),
-        f.id_modulo,
-        fd."fechaCreacion",
+        f.id_modulo, fd."fechaCreacion",
         EXTRACT(YEAR FROM fd."fechaCreacion")::text,
         ROUND((fd.cantidad * fd."valorUnitario")::numeric, 2),
         COALESCE(
@@ -94,32 +88,29 @@ FROM (
     JOIN rubro r ON r.id = fd.id_rubro
     JOIN cliente c ON c.id = f."idPropietarioEmision"
     JOIN liquidacion_avaluo_rural lar ON lar.id_factura = f.id
-    WHERE f.id_modulo = 2
-      -- Filtro de Cédula Válida
-      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000', '000000000', '0000000000', '0000000000000') 
+    WHERE f.id_modulo = ${modulos.rural}
+      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000', '000000000', '0000000000', '9999999999999') 
       AND LENGTH(TRIM(c.cedula)) >= 10
       AND fd."valorUnitario" <> 0 AND r.id_rubro_tipo <> 6
-      AND fd."fechaCreacion" <= '2026-04-27'
+      AND fd."fechaCreacion" <= '${fechaStr}'
       AND f."convenioPago" = 0
-      AND ((f.estado = 1 AND fd.estado = 1) OR (f.estado = 0 AND f."fechaEliminacion" > '2026-04-27' AND fd.estado = 0))
-      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '2026-04-27'))
-      -- Filtro de exclusión por Coactiva
+      AND ((f.estado = 1 AND fd.estado = 1) OR (f.estado = 0 AND f."fechaEliminacion" > '${fechaStr}' AND fd.estado = 0))
+      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '${fechaStr}'))
+      -- BLOQUEO TOTAL SI EL PREDIO RURAL TIENE ALGUNA FACTURA EN COACTIVA
       AND NOT EXISTS (
-          SELECT 1 FROM coactiva_factura cf 
-          INNER JOIN coactiva ca ON ca.id = cf.id_coactiva 
-          WHERE cf.id_factura = f.id AND ca.estado = 1
+          SELECT 1 FROM liquidacion_avaluo_rural lar2
+          INNER JOIN coactiva_factura cf ON cf.id_factura = lar2.id_factura
+          INNER JOIN coactiva ca ON ca.id = cf.id_coactiva
+          WHERE lar2.id_predio_rural = lar.id_predio_rural AND ca.estado = 1
       )
 
     UNION ALL
-
     -- ── AGUA POTABLE (Módulo 3) ────────────────────────────
  SELECT
-        c.id AS id_cliente,
-        c.cedula,
+        c.id AS id_cliente, c.cedula,
         CASE WHEN LENGTH(TRIM(c.cedula)) = 10 THEN 'C' WHEN LENGTH(TRIM(c.cedula)) = 13 THEN 'R' ELSE 'P' END AS tipo_id,
         TRIM(c.apellido || ' ' || c.nombre) AS nombre_cliente,
-        f.id_modulo,
-        fd."fechaCreacion" AS fecha_emision,
+        f.id_modulo, fd."fechaCreacion" AS fecha_emision,
         ae.emision AS periodo,
         ROUND((fd.cantidad * fd."valorUnitario")::numeric, 2) AS valor,
         a.id::text AS base_referencia,
@@ -134,20 +125,20 @@ FROM (
     INNER JOIN rubro r ON r.id = fd.id_rubro
     INNER JOIN abonado a ON a.id = al.id_abonado
     INNER JOIN cliente c ON c.id = a."abonadoCliente"
-    WHERE f.id_modulo = 3
-      -- Filtro de Cédula Válida
-      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000', '000000000', '0000000000', '0000000000000') 
+    WHERE f.id_modulo = ${modulos.agua}
+      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000', '000000000', '0000000000', '9999999999999') 
       AND LENGTH(TRIM(c.cedula)) >= 10
       AND lower(r.descripcion) NOT LIKE 'interes%'
-      AND fd."fechaCreacion" <= '2026-04-27'
+      AND fd."fechaCreacion" <= '${fechaStr}'
       AND f."convenioPago" = 0
-      AND ((f.estado = 1 AND fd.estado = 1) OR (f.estado = 0 AND f."fechaEliminacion" > '2026-04-27' AND fd.estado = 0))
-      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '2026-04-27'))
-      -- Filtro de exclusión por Coactiva
+      AND ((f.estado = 1 AND fd.estado = 1) OR (f.estado = 0 AND f."fechaEliminacion" > '${fechaStr}' AND fd.estado = 0))
+      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '${fechaStr}'))
+      -- BLOQUEO TOTAL SI LA CUENTA (ABONADO) TIENE ALGUNA FACTURA EN COACTIVA
       AND NOT EXISTS (
-          SELECT 1 FROM coactiva_factura cf 
-          INNER JOIN coactiva ca ON ca.id = cf.id_coactiva 
-          WHERE cf.id_factura = f.id AND ca.estado = 1
+          SELECT 1 FROM agua_liquidacion al2
+          INNER JOIN coactiva_factura cf ON cf.id_factura = al2.id_factura
+          INNER JOIN coactiva ca ON ca.id = cf.id_coactiva
+          WHERE al2.id_abonado = a.id AND ca.estado = 1
       )
 
 ) t
@@ -155,3 +146,5 @@ GROUP BY
     t.id_cliente, t.cedula, t.tipo_id, t.nombre_cliente,
     t.id_modulo, t.base_referencia, t.extra_info_1, t.extra_info_2
 ORDER BY t.nombre_cliente;
+  `;
+};
