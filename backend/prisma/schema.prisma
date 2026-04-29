@@ -62,7 +62,8 @@ model DeudaBanco {
 
   // Columnas del formato Banco de Pichincha
   tipo          String @default("CO") // Siempre CO
-  contrapartida Int // 1=CNB,2=Ventanilla,3=APP,4=WEB
+  // contrapartida Int // 1=CNB,2=Ventanilla,3=APP,4=WEB
+  contrapartida String // clave catastral o referencia de agua
   moneda        String @default("USD") // Siempre USD
   valor         Int // Centavos: 123.90 → 12390
   formaCobro    String @default("REC") // Siempre REC
