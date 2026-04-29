@@ -14,7 +14,8 @@ export interface FilaSiim {
 // ─── Registro consolidado listo para guardar / exportar ──────
 export interface RegistroDeuda {
   tipo: string; // "CO"
-  contrapartida: number; // 1..4
+  // contrapartida: number; // 1..4
+  contrapartida: string; // clave catastral o referencia de agua
   moneda: string; // "USD"
   valor: number; // centavos enteros (123.90 → 12390)
   formaCobro: string; // "REC"
