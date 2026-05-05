@@ -25,7 +25,7 @@ export interface RegistroDeuda {
   tipoId: string; // C | R | P
   numeroId: string; // número de cédula/ruc/pasaporte
   nombreCliente: string;
-  idCliente: number;
+  idCliente: string;
   totalDecimal: number; // para Excel legible
 }
 

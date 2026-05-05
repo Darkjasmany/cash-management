@@ -22,6 +22,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload; // Verifica el token y obtiene el payload. El "as JwtPayload" es para decirle a TypeScript que el resultado tendrá esa forma
+
     req.user = payload; // Guarda el payload en req.user para que esté disponible en los controladores
     next();
   } catch (error) {

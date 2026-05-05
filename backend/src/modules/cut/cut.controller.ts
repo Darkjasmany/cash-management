@@ -6,9 +6,13 @@ export class CutController {
   static process = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { fechaCorte } = req.body;
-      const user = (req as any).usuario;
+      const user = (req as any).user;
 
-      const result = await CutService.processCut(fechaCorte, user.id, user.name || user.username);
+      const result = await CutService.processCut(fechaCorte, user.id, user.name || user.email);
+
+      if (!result) {
+        throw new AppError(500, "El servicio de corte no devolvió resultados.");
+      }
 
       res.status(200).json({
         success: true,

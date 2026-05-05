@@ -27,20 +27,21 @@ const CONTRAPARTIDA_POR_MODULO: Record<number, number> = {
 };
 export class CutService {
   static async processCut(
-    fechaCorte: Date,
+    fechaCorte: string,
     usuarioId: number,
     nombreUsuario: string
   ): Promise<ResultadoProceso> {
+    console.log(fechaCorte, usuarioId, nombreUsuario);
     // 1. Desactiva el corte activo anterior (si existe)
     await prisma.parametrosCorte.updateMany({
       where: { estado: "ACTIVO" },
-      data: { estado: "ACTIVO" },
+      data: { estado: "INACTIVO" },
     });
 
     // 2. Crea nuevo corte
     const corte = await prisma.parametrosCorte.create({
       data: {
-        fechaCorte,
+        fechaCorte: new Date(fechaCorte),
         estado: "ACTIVO",
         creadoPor: usuarioId,
         nombreUsuario,
@@ -57,7 +58,7 @@ export class CutService {
 
     // 4. Consulta el SIIM
     const [filasRaw, intereses] = await Promise.all([
-      getDeudasSiim(fechaCorte),
+      getDeudasSiim(new Date(fechaCorte)),
       getInteresesSiim(),
     ]);
 
@@ -73,7 +74,7 @@ export class CutService {
       const interes = calcularInteres(
         fila.total_deuda,
         new Date(), //fecha de creación (approx: usamos hoy si no la traemos)
-        fechaCorte,
+        new Date(fechaCorte),
         modulo,
         intereses
       );
@@ -96,13 +97,13 @@ export class CutService {
         tipoId: fila.tipo_id ?? "C",
         numeroId: fila.cedula ?? "",
         nombreCliente: fila.nombre_cliente ?? "",
-        idCliente: fila.id_cliente,
+        idCliente: String(fila.id_cliente),
         totalDecimal: totalConInteres,
       });
     }
 
     // 6. Guarda en BD propia (batch insert)
-    if (registros.length > 0) {
+    /*if (registros.length > 0) {
       await prisma.deudaBanco.createMany({
         data: registros.map(r => ({
           idParametro: corte.id,
@@ -119,6 +120,47 @@ export class CutService {
           totalDecimal: r.totalDecimal,
         })),
       });
+    } */
+
+    /**
+       * El for y su contador (i += chunkSize)
+        Normalmente usamos i++ (sumar 1), pero aquí estamos procesando por lotes:
+        let i = 0: Empezamos en la posición cero.
+        i < registros.length: Seguimos mientras no hayamos llegado al final de los 37k.
+        i += chunkSize: En lugar de saltar de 1 en 1, saltamos de 5,000 en 5,000.
+        Iteración 1: i es 0.
+        Iteración 2: i es 5,000.
+        Iteración 3: i es 10,000... y así sucesivamente.
+       * El slice(i, i + chunkSize)
+        El método slice sirve para "cortar" una parte de un arreglo sin modificar el original.
+        ¿Cómo funciona?: Toma los elementos desde el índice i hasta el i + chunkSize (sin incluir el último).
+        En la primera vuelta: registros.slice(0, 5000).
+        En la segunda vuelta: registros.slice(5000, 10000).
+        Esto te asegura que cada llamada a prisma.createMany solo reciba una lista de 5,000 elementos.
+       */
+
+    if (registros.length > 0) {
+      const chunkSize = 5000;
+      for (let i = 0; i < registros.length; i += chunkSize) {
+        const chunk = registros.slice(i, i + chunkSize);
+        await prisma.deudaBanco.createMany({
+          data: chunk.map(r => ({
+            idParametro: corte.id,
+            tipo: r.tipo,
+            contrapartida: r.contrapartida,
+            moneda: r.moneda,
+            valor: r.valor,
+            formaCobro: r.formaCobro,
+            referencia: r.referencia,
+            tipoId: r.tipoId,
+            numeroId: r.numeroId,
+            nombreCliente: r.nombreCliente,
+            idCliente: String(r.idCliente),
+            totalDecimal: r.totalDecimal,
+          })),
+        });
+        console.log(`✅ Insertados ${i + chunk.length} de ${registros.length}...`);
+      }
     }
 
     // 7. Retorna resultado del proceso

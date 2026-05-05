@@ -73,7 +73,7 @@ model DeudaBanco {
   nombreCliente String // APELLIDO NOMBRE
 
   // Campos extra para el Excel / trazabilidad
-  idCliente    Int
+  idCliente    String
   totalDecimal Decimal @db.Decimal(10, 2) // Valor legible (ej: 123.90)
 
   @@map("deuda_banco")

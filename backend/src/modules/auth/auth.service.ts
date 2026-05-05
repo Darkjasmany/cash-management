@@ -7,16 +7,18 @@ import { LoginInput, RegisterInput } from "./auth.schema";
 
 // Tipo del payload del JWT
 export type JwtPayload = {
-  id: string;
+  id: number;
   role: string;
+  email: string;
+  name: string;
 };
 
 // Tipo de respuesta del login
 type LoginResponse = {
   user: {
-    id: string;
-    name: string;
+    id: number;
     email: string;
+    name: string;
     role: string;
   };
   token: string;
@@ -66,7 +68,12 @@ export class AuthService {
     const isValid = await this.verifyPassword(input.password, user.password);
     if (!isValid) throw new AppError(401, "Credenciales inválidas");
 
-    const token = this.generateToken({ id: user.id, role: user.role });
+    const token = this.generateToken({
+      id: user.id,
+      role: user.role,
+      email: user.email,
+      name: user.name,
+    });
 
     return {
       user: {
