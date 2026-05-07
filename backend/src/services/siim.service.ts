@@ -79,7 +79,7 @@ export function calcularInteres(
   const periodoEmision = toPeriodo(fechaInicio);
   const periodoActual = toPeriodo(fechaCorte);
 
-  if (periodoActual - periodoEmision) return 0; // Si aún no llega al periodo de corte, no hay interés
+  if (periodoActual < periodoEmision) return 0; // Si aún no llega al periodo de corte, no hay interés
 
   //  Suma los porcentajes de interés del rango entre periodoEmision y periodoActual
   let totalPorcentaje = 0;
@@ -92,7 +92,7 @@ export function calcularInteres(
   }
 
   // Aplica el porcentaje del módulo al total de intereses acumulados
-  const factorModulo = (modulo.porcentaje / 100) * 100; // Convertir a factor (ej. 20% -> 0.20)
+  const factorModulo = modulo.porcentaje / 100 / 100; // Convertir a factor (ej. 20% -> 0.20)
   const valorInteres = totalPorcentaje * factorModulo * baseImponible; // Interés = Base Imponible * (Suma % Intereses) * (Factor del Módulo)
 
   return Math.round(valorInteres * 100) / 100; // Redondear a 2 decimales

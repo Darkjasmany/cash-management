@@ -73,7 +73,7 @@ export class CutService {
       // Calculamos el interés adicional sobre ese total
       const interes = calcularInteres(
         fila.total_deuda,
-        new Date(), //fecha de creación (approx: usamos hoy si no la traemos)
+        new Date(fila.fecha_emision_max), //fecha de creación (approx: usamos hoy si no la traemos)
         new Date(fechaCorte),
         modulo,
         intereses
