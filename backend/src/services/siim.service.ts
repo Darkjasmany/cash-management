@@ -67,7 +67,7 @@ export function calcularInteres(
 
   // Fecha desde la cual empieza a contar el interés
   const fechaInicio = new Date(fechaCreacion);
-  fechaInicio.setDate(fechaInicio.getDate() + modulo.diasAdicionales);
+  fechaInicio.setDate(fechaInicio.getDate() + (modulo.diasAdicionales || 0));
 
   // Suma los meses de periodicidad (mismo que _hmPeriodicidad en Java)
   const mesesPeriodo = PERIODICIDAD_MESES[periodicidad] ?? 1;
@@ -87,15 +87,50 @@ export function calcularInteres(
     const periodoInteres = interes.ano * 100 + interes.mes;
     // Si el periodo del interés está entre el de emisión y el actual, se suma su porcentaje
     if (periodoInteres >= periodoEmision && periodoInteres <= periodoActual) {
-      totalPorcentaje += interes.porcentaje;
+      totalPorcentaje += interes.porcentaje || 0;
     }
   }
 
   // Aplica el porcentaje del módulo al total de intereses acumulados
-  const factorModulo = modulo.porcentaje / 100 / 100; // Convertir a factor (ej. 20% -> 0.20)
+  const factorModulo = (modulo.porcentaje || 0) / 100 / 100; // Convertir a factor (ej. 20% -> 0.20)
   const valorInteres = totalPorcentaje * factorModulo * baseImponible; // Interés = Base Imponible * (Suma % Intereses) * (Factor del Módulo)
 
-  return Math.round(valorInteres * 100) / 100; // Redondear a 2 decimales
+  // return Math.round(valorInteres * 100) / 100; // Redondear a 2 decimales
+  return isNaN(valorInteres) ? 0 : Math.round(valorInteres * 100) / 100;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Lógica de Pronto Pago (Descuentos Ene-Jun, Recargos Jul-Dic)
+// Solo aplica para el año en curso (2026) en Predios.
+// ─────────────────────────────────────────────────────────────
+export function calcularDescuentoRecargoProntoPago(
+  valorImpuesto: number,
+  fechaCorte: Date
+): number {
+  const mes = fechaCorte.getMonth(); // 0 = Enero
+  const dia = fechaCorte.getDate();
+
+  // Segundo Semestre (Julio a Diciembre): Recargo del 10% fijo
+  if (mes >= 6) {
+    return Math.round(valorImpuesto * 0.1 * 100) / 100;
+  }
+
+  // Primer Semestre: Descuentos quincenales (10% a 1%)
+  const tablaDescuentos = [
+    [10, 9], // Enero (1ra q, 2da q)
+    [8, 7], // Febrero
+    [6, 5], // Marzo
+    [4, 3], // Abril
+    [3, 2], // Mayo
+    [2, 1], // Junio
+  ];
+
+  const quincena = dia <= 15 ? 0 : 1;
+  const porcentaje = tablaDescuentos[mes][quincena];
+
+  // Es negativo porque es un descuento
+  const descuento = valorImpuesto * (porcentaje / 100) * -1;
+  return Math.round(descuento * 100) / 100;
 }
 
 // ─────────────────────────────────────────────────────────────

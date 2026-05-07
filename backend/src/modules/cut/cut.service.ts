@@ -1,6 +1,7 @@
 import { env } from "@/config/env";
 import { prisma } from "@/lib/db";
 import {
+  calcularDescuentoRecargoProntoPago,
   calcularInteres,
   getDeudasSiim,
   getInteresesSiim,
@@ -13,25 +14,14 @@ const MODULO_CATASTRO_URBANO = parseInt(env?.MODULO_CATASTRO_URBANO ?? "1");
 const MODULO_CATASTRO_RURAL = parseInt(env?.MODULO_CATASTRO_RURAL ?? "2");
 const MODULO_AGUA_POTABLE = parseInt(env?.MODULO_AGUA_POTABLE ?? "3");
 
-// Contrapartida según módulo (configurable, por defecto todas → 1)
-/**
- * CNB (PICHINCHA MI VECINO)    1
- * VENTANILLA	2
- * APP (PAGO DE SERVICIOS)	3
- * WEB	4
- */
-const CONTRAPARTIDA_POR_MODULO: Record<number, number> = {
-  [MODULO_CATASTRO_URBANO]: 1,
-  [MODULO_CATASTRO_RURAL]: 1,
-  [MODULO_AGUA_POTABLE]: 1,
-};
 export class CutService {
   static async processCut(
-    fechaCorte: string,
+    fechaCorteStr: string,
     usuarioId: number,
     nombreUsuario: string
   ): Promise<ResultadoProceso> {
-    console.log(fechaCorte, usuarioId, nombreUsuario);
+    const fechaCorte = new Date(fechaCorteStr);
+
     // 1. Desactiva el corte activo anterior (si existe)
     await prisma.parametrosCorte.updateMany({
       where: { estado: "ACTIVO" },
@@ -41,7 +31,7 @@ export class CutService {
     // 2. Crea nuevo corte
     const corte = await prisma.parametrosCorte.create({
       data: {
-        fechaCorte: new Date(fechaCorte),
+        fechaCorte,
         estado: "ACTIVO",
         creadoPor: usuarioId,
         nombreUsuario,
@@ -49,7 +39,7 @@ export class CutService {
     });
 
     // 3. Elimina deudas del corte anterior (el nuevo aún no tiene)
-    //    (las deudas de cortes INACTIVOS se borran para no acumular)
+    // (las deudas de cortes INACTIVOS se borran para no acumular)
     await prisma.deudaBanco.deleteMany({
       where: {
         parametro: { estado: "INACTIVO" },
@@ -71,18 +61,39 @@ export class CutService {
 
       // El total ya viene sumado de la BD (rubros sin intereses)
       // Calculamos el interés adicional sobre ese total
+      const totalNominal = Number(fila.total_deuda) || 0;
       const interes = calcularInteres(
-        fila.total_deuda,
+        totalNominal,
         new Date(fila.fecha_emision_max), //fecha de creación (approx: usamos hoy si no la traemos)
-        new Date(fechaCorte),
+        fechaCorte,
         modulo,
         intereses
       );
 
-      const totalConInteres = Math.round((fila.total_deuda + interes) * 100) / 100; // Convertimos a centavos enteros para el formato requerido
-      const valorCentavos = Math.round(totalConInteres * 100); // sin decimales
+      // Lógica de Pronto Pago (Aplica solo si el periodo es el año actual y es Predio)
+      let ajusteProntoPago = 0;
+      const anioEmision = new Date(fila.fecha_emision_max).getFullYear();
+      // periodoEmision: YYYY como número
+      const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
+      const periodoActual = toPeriodo(fechaCorte);
 
-      if (valorCentavos <= 0) continue; // Si la deuda total con intereses es cero o negativa, omitimos
+      if (
+        anioEmision === periodoActual &&
+        (fila.id_modulo === MODULO_CATASTRO_URBANO || fila.id_modulo === MODULO_CATASTRO_RURAL)
+      ) {
+        ajusteProntoPago = calcularDescuentoRecargoProntoPago(totalNominal, fechaCorte);
+      }
+
+      // Suma final
+      // const totalConInteres = Math.round((fila.total_deuda + interes) * 100) / 100; // Convertimos a centavos enteros para el formato requerido
+      // const valorCentavos = Math.round(totalConInteres * 100); // sin decimales
+
+      // const totalConAjustes = totalNominal + interes + ajusteProntoPago;
+      const totalConAjustes = Math.round((totalNominal + interes + ajusteProntoPago) * 100) / 100; // Convertimos a centavos enteros para el formato requerido
+      const valorCentavos = Math.round(totalConAjustes * 100);
+
+      // if (valorCentavos <= 0) continue; // Si la deuda total con intereses es cero o negativa, omitimos
+      if (isNaN(valorCentavos) || valorCentavos <= 0) continue;
 
       // Completar con los campos necesarios, usando fila y las constantes de configuración
       registros.push({
@@ -98,7 +109,8 @@ export class CutService {
         numeroId: fila.cedula ?? "",
         nombreCliente: fila.nombre_cliente ?? "",
         idCliente: String(fila.id_cliente),
-        totalDecimal: totalConInteres,
+        // totalDecimal: totalConInteres,
+        totalDecimal: totalConAjustes,
       });
     }
 
@@ -143,6 +155,7 @@ export class CutService {
       const chunkSize = 5000;
       for (let i = 0; i < registros.length; i += chunkSize) {
         const chunk = registros.slice(i, i + chunkSize);
+        console.log("Primer registro a insertar:", JSON.stringify(chunk[0], null, 2));
         await prisma.deudaBanco.createMany({
           data: chunk.map(r => ({
             idParametro: corte.id,

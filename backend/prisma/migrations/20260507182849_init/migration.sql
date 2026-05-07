@@ -43,7 +43,7 @@ CREATE TABLE "deuda_banco" (
     "tipoId" TEXT NOT NULL,
     "numeroId" TEXT NOT NULL,
     "nombreCliente" TEXT NOT NULL,
-    "idCliente" INTEGER NOT NULL,
+    "idCliente" TEXT NOT NULL,
     "totalDecimal" DECIMAL(10,2) NOT NULL,
 
     CONSTRAINT "deuda_banco_pkey" PRIMARY KEY ("id")
