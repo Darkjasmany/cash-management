@@ -74,11 +74,11 @@ export class CutService {
       let ajusteProntoPago = 0;
       const anioEmision = new Date(fila.fecha_emision_max).getFullYear();
       // periodoEmision: YYYY como número
-      const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
-      const periodoActual = toPeriodo(fechaCorte);
+      // const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
+      // const periodoActual = toPeriodo(fechaCorte);
 
       if (
-        anioEmision === periodoActual &&
+        anioEmision === 2026 &&
         (fila.id_modulo === MODULO_CATASTRO_URBANO || fila.id_modulo === MODULO_CATASTRO_RURAL)
       ) {
         ajusteProntoPago = calcularDescuentoRecargoProntoPago(totalNominal, fechaCorte);
@@ -88,8 +88,8 @@ export class CutService {
       // const totalConInteres = Math.round((fila.total_deuda + interes) * 100) / 100; // Convertimos a centavos enteros para el formato requerido
       // const valorCentavos = Math.round(totalConInteres * 100); // sin decimales
 
-      // const totalConAjustes = totalNominal + interes + ajusteProntoPago;
-      const totalConAjustes = Math.round((totalNominal + interes + ajusteProntoPago) * 100) / 100; // Convertimos a centavos enteros para el formato requerido
+      const totalConAjustes = totalNominal + interes + ajusteProntoPago;
+      // const totalConAjustes = Math.round((totalNominal + interes + ajusteProntoPago) * 100) / 100; // Convertimos a centavos enteros para el formato requerido
       const valorCentavos = Math.round(totalConAjustes * 100);
 
       // if (valorCentavos <= 0) continue; // Si la deuda total con intereses es cero o negativa, omitimos

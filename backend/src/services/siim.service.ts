@@ -75,7 +75,6 @@ export function calcularInteres(
 
   // periodoEmision: YYYY como número
   const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
-
   const periodoEmision = toPeriodo(fechaInicio);
   const periodoActual = toPeriodo(fechaCorte);
 
