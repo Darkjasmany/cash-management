@@ -1,9 +1,4 @@
-export const GET_DEUDAS_SIIM_SQL = (
-  fechaStr: string,
-  modulos: { urbano: number; rural: number; agua: number }
-) => {
-  return `
-    WITH 
+WITH 
 -- 1. Identificar Predios Urbanos bloqueados por coactiva
 bloqueo_urbano AS (
     SELECT DISTINCT la.id_predio FROM coactiva_factura cf
@@ -46,10 +41,10 @@ SELECT * FROM (
     JOIN rubro r ON r.id = fd.id_rubro
     JOIN cliente c ON c.id = f."idPropietarioEmision"
     JOIN liquidacion_avaluo la ON la.id_factura = f.id
-    WHERE f.id_modulo = ${modulos.urbano} AND f."convenioPago" = 0
-      AND fd."fechaCreacion" <= '${fechaStr}'
-      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '${fechaStr}'))
-      AND (f.estado = 1 OR (f.estado = 0 AND f."fechaEliminacion" > '${fechaStr}'))
+    WHERE f.id_modulo = 1 AND f."convenioPago" = 0
+      AND fd."fechaCreacion" <= '2026-05-07'
+      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '2026-05-07'))
+      AND (f.estado = 1 OR (f.estado = 0 AND f."fechaEliminacion" > '2026-05-07'))
       -- FILTRO DE CÉDULA
       AND c.cedula IS NOT NULL 
       AND TRIM(c.cedula) NOT IN ('000', '000000000', '0000000000', '9999999999999') 
@@ -76,10 +71,10 @@ SELECT * FROM (
     JOIN rubro r ON r.id = fd.id_rubro
     JOIN cliente c ON c.id = f."idPropietarioEmision"
     JOIN liquidacion_avaluo_rural lar ON lar.id_factura = f.id
-    WHERE f.id_modulo = ${modulos.rural} AND f."convenioPago" = 0
-      AND fd."fechaCreacion" <= '${fechaStr}'
-      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '${fechaStr}'))
-      AND (f.estado = 1 OR (f.estado = 0 AND f."fechaEliminacion" > '${fechaStr}'))
+    WHERE f.id_modulo = 2 AND f."convenioPago" = 0
+      AND fd."fechaCreacion" <= '2026-05-07'
+      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '2026-05-07'))
+      AND (f.estado = 1 OR (f.estado = 0 AND f."fechaEliminacion" > '2026-05-07'))
       -- FILTRO DE CÉDULA
       AND c.cedula IS NOT NULL 
       AND TRIM(c.cedula) NOT IN ('000', '000000000', '0000000000', '9999999999999') 
@@ -106,10 +101,10 @@ SELECT * FROM (
     JOIN cliente c ON c.id = ab."abonadoCliente"
     JOIN agua_emision_ruta aer ON aer.id = al.id_emision_ruta
     JOIN agua_emision ae ON ae.id = aer.id_agua_emision
-    WHERE f.id_modulo = ${modulos.agua} AND f."convenioPago" = 0
-      AND fd."fechaCreacion" <= '${fechaStr}'
-      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '${fechaStr}'))
-      AND (f.estado = 1 OR (f.estado = 0 AND f."fechaEliminacion" > '${fechaStr}'))
+    WHERE f.id_modulo = 3 AND f."convenioPago" = 0
+      AND fd."fechaCreacion" <= '2026-05-07'
+      AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '2026-05-07'))
+      AND (f.estado = 1 OR (f.estado = 0 AND f."fechaEliminacion" > '2026-05-07'))
       -- FILTRO DE CÉDULA
       AND c.cedula IS NOT NULL 
       AND TRIM(c.cedula) NOT IN ('000', '000000000', '0000000000', '9999999999999') 
@@ -118,5 +113,3 @@ SELECT * FROM (
     GROUP BY f.id, c.id, ab.id, ae.emision
 ) AS facturas
 ORDER BY nombre_cliente, fecha_creacion ASC;
-  `;
-};
