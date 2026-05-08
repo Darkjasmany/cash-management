@@ -1,38 +1,32 @@
-// ─── Fila que devuelve GET_DEUDAS_SIIM_SQL ───────────────────
-// UNA fila por factura (el query ordena por fecha ASC)
+// ─── Fila cruda que devuelve el SIIM agrupada por cliente ────
 export interface FilaSiim {
-  id_factura: number;
-  id_modulo: number;
-  fecha_creacion: Date; // f."fechaCreacion" real
   id_cliente: number;
   cedula: string;
   tipo_id: string; // 'C' | 'R' | 'P'
   nombre_cliente: string;
-  // Montos calculados en el SQL con SUM+CASE
-  total_nominal: number; // todos los rubros activos sin intereses
-  servicio_administrativo: number; // rubros tipo 2 o id específico por módulo
-  bomberos: number; // solo catastro urbano/rural
-  base_predial_pura: number; // impuesto predial + exoneración (base pronto pago)
-  // Referencia bancaria
+  id_modulo: number;
   contrapartida: string; // clave catastral o referencia de agua
   referencia: string; // descripción legible para referencia (ej. "Catastro urbano. Años: 2019, 2020")
+  total_deuda: number; // suma de todos los rubros del cliente
+  fecha_emision_max: Date; // fecha de emisión más reciente entre las facturas del cliente
 }
 
 // ─── Registro consolidado listo para guardar / exportar ──────
 export interface RegistroDeuda {
   tipo: string; // "CO"
+  // contrapartida: number; // 1..4
   contrapartida: string; // clave catastral o referencia de agua
   moneda: string; // "USD"
   valor: number; // centavos enteros (123.90 → 12390)
   formaCobro: string; // "REC"
   ref1: string; // EN BLANCO
   ref2: string; // EN BLANCO
-  referencia: string; // texto legible para el banco
+  referencia: string; // clave catastral / referencia
   tipoId: string; // C | R | P
   numeroId: string; // número de cédula/ruc/pasaporte
   nombreCliente: string;
   idCliente: string;
-  totalDecimal: number; // para Excel legible, valor en USD con decimales (ej: 123.90)
+  totalDecimal: number; // para Excel legible
 }
 
 // ─── Resultado del proceso ────────────────────────────────────
