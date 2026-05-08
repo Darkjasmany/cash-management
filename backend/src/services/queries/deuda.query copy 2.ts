@@ -30,7 +30,7 @@ SELECT * FROM (
     -- MÓDULO 1: URBANO
     SELECT 
         f.id AS id_factura, f.id_modulo, f."fechaCreacion" AS fecha_creacion,
-        c.id AS id_cliente, TRIM(c.cedula) AS cedula, 
+        c.id AS id_cliente, TRIM(c.cedula) AS cedula, CASE WHEN LENGTH(TRIM(c.cedula)) = 10 THEN 'C' WHEN LENGTH(TRIM(c.cedula)) = 13 THEN 'R' ELSE 'P' END AS tipo_id,
         TRIM(c.apellido || ' ' || c.nombre) AS nombre_cliente,
         ROUND(SUM(CASE WHEN fd.estado = 1 AND r.id_rubro_tipo <> 6 THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS total_nominal,
         ROUND(SUM(CASE WHEN fd.estado = 1 AND (r.id_rubro_tipo = 2 OR r.id = 140) THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS servicio_administrativo,
@@ -61,7 +61,7 @@ SELECT * FROM (
 
     -- MÓDULO 2: RURAL
     SELECT 
-        f.id, f.id_modulo, f."fechaCreacion", c.id, TRIM(c.cedula), 
+        f.id, f.id_modulo, f."fechaCreacion", c.id, TRIM(c.cedula), CASE WHEN LENGTH(TRIM(c.cedula)) = 10 THEN 'C' WHEN LENGTH(TRIM(c.cedula)) = 13 THEN 'R' ELSE 'P' END AS tipo_id,
         TRIM(c.apellido || ' ' || c.nombre),
         ROUND(SUM(CASE WHEN fd.estado = 1 AND r.id_rubro_tipo <> 6 THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
         ROUND(SUM(CASE WHEN fd.estado = 1 AND (r.id_rubro_tipo = 2 OR r.id = 140) THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
@@ -92,7 +92,7 @@ SELECT * FROM (
 
     -- MÓDULO 3: AGUA (AAPP)
     SELECT 
-        f.id, f.id_modulo, f."fechaCreacion", c.id, TRIM(c.cedula), 
+        f.id, f.id_modulo, f."fechaCreacion", c.id, TRIM(c.cedula), CASE WHEN LENGTH(TRIM(c.cedula)) = 10 THEN 'C' WHEN LENGTH(TRIM(c.cedula)) = 13 THEN 'R' ELSE 'P' END AS tipo_id,
         TRIM(c.apellido || ' ' || c.nombre),
         ROUND(SUM(CASE WHEN fd.estado = 1 AND r.id_rubro_tipo <> 6 THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
         ROUND(SUM(CASE WHEN fd.estado = 1 AND (r.id_rubro_tipo = 2 OR r.id = 7) THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),

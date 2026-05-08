@@ -42,29 +42,17 @@ export async function getModuloSiim(idModulo: number): Promise<ModuloSiim | null
 }
 
 // ─────────────────────────────────────────────────────────────
-// Calcula intereses replicando CalculoInteres.java
-//
-// Lógica exacta del Java:
-//   c.setTime(factura.getFechaCreacion())           → parte de fecha real
-//   c.add(Calendar.DATE, modulo.getDiasAdicionales()) → suma días
-//   if (esCatastro && anioFactura == anioActual)     → suma meses periodicidad
-//   if (!esCatastro)                                 → siempre suma meses
-//   periodoEmision = YYYYMM de c
-//   periodoActual  = YYYYMM de fechaCorte
-//   suma porcentajes donde periodoEmision ≤ periodo ≤ periodoActual
-//   totalIntereses = (suma * (modulo.porcentaje / 100)) / 100
-//   retorna totalIntereses * baseImponible
+// Calcula intereses según la lógica del CalculoInteres.java
+// Replica la lógica: suma porcentajes de intereses entre
+// periodoEmision y periodoActual, aplica porcentaje del módulo.
 // ─────────────────────────────────────────────────────────────
 export function calcularInteres(
   baseImponible: number,
   fechaCreacion: Date,
   fechaCorte: Date,
   modulo: ModuloSiim,
-  intereses: InteresisSiim[],
-  esCatastro: boolean = false
+  intereses: InteresisSiim[]
 ): number {
-  if (!baseImponible || baseImponible <= 0) return 0;
-
   const PERIODICIDAD_MESES: Record<number, number> = {
     0: 0, // NO_CALCULA
     1: 0, // DIARIO — no aplica meses
@@ -77,20 +65,13 @@ export function calcularInteres(
   const periodicidad = modulo.periodicidad;
   if (periodicidad === 0) return 0;
 
-  const mesesPeriodo = PERIODICIDAD_MESES[periodicidad] ?? 1;
-
   // Fecha desde la cual empieza a contar el interés
   const fechaInicio = new Date(fechaCreacion);
   fechaInicio.setDate(fechaInicio.getDate() + (modulo.diasAdicionales || 0));
 
-  // Regla Java: catastro solo sube meses si la factura es del año del corte
-  const anioFactura = new Date(fechaCreacion).getFullYear();
-  const anioCorte = fechaCorte.getFullYear();
-  const subirMeses = !esCatastro || (esCatastro && anioFactura === anioCorte);
-
-  if (subirMeses) {
-    fechaInicio.setMonth(fechaInicio.getMonth() + mesesPeriodo);
-  }
+  // Suma los meses de periodicidad (mismo que _hmPeriodicidad en Java)
+  const mesesPeriodo = PERIODICIDAD_MESES[periodicidad] ?? 1;
+  fechaInicio.setMonth(fechaInicio.getMonth() + mesesPeriodo);
 
   // periodoEmision: YYYY como número
   const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
@@ -109,13 +90,9 @@ export function calcularInteres(
     }
   }
 
-  if (totalPorcentaje === 0) return 0;
-
-  // Fórmula idéntica al Java:
-  // totalIntereses = (totalPorcentaje * (modulo.porcentaje / 100)) / 100
   // Aplica el porcentaje del módulo al total de intereses acumulados
-  const totalIntereses = (totalPorcentaje * ((modulo.porcentaje || 0) / 100)) / 100;
-  const valorInteres = totalIntereses * baseImponible;
+  const factorModulo = (modulo.porcentaje || 0) / 100 / 100; // Convertir a factor (ej. 20% -> 0.20)
+  const valorInteres = totalPorcentaje * factorModulo * baseImponible; // Interés = Base Imponible * (Suma % Intereses) * (Factor del Módulo)
 
   // return Math.round(valorInteres * 100) / 100; // Redondear a 2 decimales
   return isNaN(valorInteres) ? 0 : Math.round(valorInteres * 100) / 100;
@@ -124,10 +101,6 @@ export function calcularInteres(
 // ─────────────────────────────────────────────────────────────
 // Lógica de Pronto Pago (Descuentos Ene-Jun, Recargos Jul-Dic)
 // Solo aplica para el año en curso (2026) en Predios.
-//
-// Base: base_predial_pura (impuesto predial + exoneración)
-// Primer semestre  → descuento negativo escalonado por quincena
-// Segundo semestre → recargo positivo fijo +10%
 // ─────────────────────────────────────────────────────────────
 export function calcularDescuentoRecargoProntoPago(
   valorImpuesto: number,

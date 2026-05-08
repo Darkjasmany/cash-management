@@ -6,7 +6,7 @@ export interface FilaSiim {
   fecha_creacion: Date; // f."fechaCreacion" real
   id_cliente: number;
   cedula: string;
-  tipo_id: string; // 'C' | 'R' | 'P'
+  // tipo_id: string; // 'C' | 'R' | 'P'
   nombre_cliente: string;
   // Montos calculados en el SQL con SUM+CASE
   total_nominal: number; // todos los rubros activos sin intereses

@@ -95,7 +95,7 @@ export class CutService {
 
     // ── 4. Consulta el SIIM ───────────────────────────────────
     console.log("📡 Consultando SIIM...");
-    const [filasRaw, intereses, moduloUrbano, moduloRural, moduloAgua] = await Promise.all([
+    const [filasRaw, intereses] = await Promise.all([
       getDeudasSiim(new Date(fechaCorte)),
       getInteresesSiim(),
     ]);
