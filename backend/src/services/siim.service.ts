@@ -111,6 +111,7 @@ export function calcularInteres(
   const totalIntereses = (totalPorcentaje * ((modulo.porcentaje || 0) / 100)) / 100;
   const valorInteres = totalIntereses * baseImponible;
   return isNaN(valorInteres) ? 0 : Math.round(valorInteres * 100) / 100;
+  // return isNaN(valorInteres) ? 0 : valorInteres; // SIN redondear
 }
 
 // ---------------------------------------------------------------------
