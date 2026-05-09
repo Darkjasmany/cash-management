@@ -1,8 +1,12 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
   provider = "prisma-client-js"
+  // output   = "../generated/prisma"
 }
 
 datasource db {
@@ -16,7 +20,7 @@ enum Role {
   ORGANIZER
 }
 
-// ─── Usuario ─────────────────────────────────────────────────
+// ─── Usuario ─────────────────────────────────────
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
@@ -41,8 +45,8 @@ model ParametrosCorte {
   id            Int         @id @default(autoincrement())
   fechaCorte    DateTime    @db.Date
   estado        EstadoCorte @default(ACTIVO)
-  creadoPor     Int
-  nombreUsuario String
+  creadoPor     Int // id del usuario (de tu sistema FutbolSystem/SIIM)
+  nombreUsuario String // nombre para mostrar sin FK cross-app
   creadoEn      DateTime    @default(now())
 
   deudas DeudaBanco[]
@@ -50,35 +54,30 @@ model ParametrosCorte {
   @@map("parametros_corte")
 }
 
-// ─── Deuda consolidada por cliente (1 fila por factura) ──────
-// Guarda cada factura individual con todos sus componentes calculados
+// ─── Deuda consolidada por cliente (1 fila por cliente) ──────
 model DeudaBanco {
   id          Int             @id @default(autoincrement())
   idParametro Int
   parametro   ParametrosCorte @relation(fields: [idParametro], references: [id], onDelete: Cascade)
 
-  // Identificación de la factura en el SIIM
-  idFacturaSiim Int
-  id_modulo     Int
-
-  // Datos del cliente
-  tipo          String @default("CO")
+  tipo          String  @default("CO")
   contrapartida String
-  moneda        String @default("USD")
-  formaCobro    String @default("REC")
-  referencia    String @default("")
+  moneda        String  @default("USD")
+  valor         Int
+  formaCobro    String  @default("REC")
+  referencia    String  @default("")
   tipoId        String
   numeroId      String
   nombreCliente String
   idCliente     String
+  totalDecimal  Decimal @db.Decimal(10, 2)
 
-  // Montos por factura (ya calculados y redondeados individualmente)
-  montoNominal   Decimal @db.Decimal(10, 2) // suma de rubros base (sin intereses ni descuentos)
-  montoInteres   Decimal @default(0) @db.Decimal(10, 2)
-  montoMora      Decimal @default(0) @db.Decimal(10, 2)
-  montoDescuento Decimal @default(0) @db.Decimal(10, 2) // siempre negativo (descuento)
-  montoRecargo   Decimal @default(0) @db.Decimal(10, 2) // siempre positivo (recargo)
-  totalFactura   Decimal @db.Decimal(10, 2) // suma de los anteriores (redondeado)
+  // ── Desglose para auditoría y debug ──────────────────────
+  montoNominal   Decimal @default(0) @db.Decimal(10, 2) // rubros base sin calcular
+  montoInteres   Decimal @default(0) @db.Decimal(10, 2) // interés calculado
+  montoMora      Decimal @default(0) @db.Decimal(10, 2) // mora (catastro años anteriores)
+  montoDescuento Decimal @default(0) @db.Decimal(10, 2) // descuento pronto pago (negativo)
+  montoRecargo   Decimal @default(0) @db.Decimal(10, 2) // recargo segundo semestre (positivo)
 
   @@map("deuda_banco")
 }

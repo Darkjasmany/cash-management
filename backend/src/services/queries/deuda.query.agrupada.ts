@@ -14,8 +14,8 @@ SELECT * FROM (
         f.id AS id_factura, f.id_modulo, f."fechaCreacion" AS fecha_creacion,
         c.id AS id_cliente, TRIM(c.cedula) AS cedula, 
         TRIM(c.apellido || ' ' || c.nombre) AS nombre_cliente,
-        -- total_nominal: exclude intereses (46) y descuento (184) / recargo (185)
-        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro NOT IN (46, 184, 185) 
+        -- total_nominal: todos los rubros activos EXCEPTO interés (id=46)
+        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro NOT IN (46) 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS total_nominal,
         -- servicio_administrativo: rubro id 44
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 44 
@@ -50,8 +50,8 @@ SELECT * FROM (
     SELECT 
         f.id, f.id_modulo, f."fechaCreacion", c.id, TRIM(c.cedula), 
         TRIM(c.apellido || ' ' || c.nombre),
-        -- exclude intereses rural (142), descuento rural (195), recargo rural (196)
-        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro NOT IN (142, 195, 196) 
+        -- total_nominal: excluye interés rural (id=142)
+        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro NOT IN (142) 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
         -- servicio_administrativo rural: rubro id=140
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 140 
@@ -86,7 +86,7 @@ SELECT * FROM (
     SELECT 
         f.id, f.id_modulo, f."fechaCreacion", c.id, TRIM(c.cedula), 
         TRIM(c.apellido || ' ' || c.nombre),
-        -- exclude interés agua (5)
+        -- total_nominal: excluye interés agua (id=5)
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro NOT IN (5) 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
         -- servicio_administrativo agua: rubro id=7

@@ -8,7 +8,7 @@ const MODULO_CATASTRO_RURAL = parseInt(env?.MODULO_CATASTRO_RURAL ?? "2");
 const MODULO_AGUA_POTABLE = parseInt(env?.MODULO_AGUA_POTABLE ?? "3");
 
 // ─────────────────────────────────────────────────────────────
-// Tabla de intereses mensuales
+// Tabla de intereses
 // ─────────────────────────────────────────────────────────────
 export async function getInteresesSiim(): Promise<InteresisSiim[]> {
   try {
@@ -23,7 +23,7 @@ export async function getInteresesSiim(): Promise<InteresisSiim[]> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Configuración del módulo (periodicidad, porcentaje, días adicionales)
+// Configuración del módulo
 // ─────────────────────────────────────────────────────────────
 export async function getModuloSiim(idModulo: number): Promise<ModuloSiim | null> {
   try {
@@ -130,81 +130,6 @@ export function calcularInteres(
   return isNaN(valorInteres) ? 0 : valorInteres;
 }
 
-export function calcularInteresExacto(
-  baseImponible: number,
-  fechaCreacion: Date,
-  fechaCorte: Date,
-  modulo: ModuloSiim,
-  intereses: InteresisSiim[],
-  esCatastro: boolean = false
-): number {
-  if (!baseImponible || baseImponible <= 0) return 0;
-
-  const PERIODICIDAD_MESES: Record<number, number> = {
-    0: 0,
-    1: 0,
-    2: 1,
-    3: 3,
-    4: 6,
-    5: 12,
-  };
-  const periodicidad = modulo.periodicidad;
-  if (periodicidad === 0) return 0;
-  const mesesPeriodo = PERIODICIDAD_MESES[periodicidad] ?? 1;
-
-  const fechaInicio = new Date(fechaCreacion);
-  fechaInicio.setDate(fechaInicio.getDate() + (modulo.diasAdicionales || 0));
-
-  const anioFactura = fechaCreacion.getFullYear();
-  const anioCorte = fechaCorte.getFullYear();
-
-  // Regla Java: catastro suma meses solo si la factura es del año del corte
-  const subirMeses = !esCatastro || (esCatastro && anioFactura === anioCorte);
-  if (subirMeses) {
-    fechaInicio.setMonth(fechaInicio.getMonth() + mesesPeriodo);
-  }
-
-  const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
-  const periodoEmision = toPeriodo(fechaInicio);
-  const periodoActual = toPeriodo(fechaCorte);
-
-  if (periodoActual < periodoEmision) return 0;
-
-  let totalPorcentaje = 0;
-  for (const i of intereses) {
-    const p = i.ano * 100 + i.mes;
-    if (p >= periodoEmision && p <= periodoActual) {
-      totalPorcentaje += i.porcentaje || 0;
-    }
-  }
-  if (totalPorcentaje === 0) return 0;
-
-  // Fórmula Java: totalIntereses = (totalPorcentaje * (modulo.porcentaje/100)) / 100
-  const totalIntereses = (totalPorcentaje * ((modulo.porcentaje || 0) / 100)) / 100;
-  const valorInteres = totalIntereses * baseImponible;
-  return isNaN(valorInteres) ? 0 : valorInteres;
-}
-
-// Interés redondeado a 2 decimales (por factura)
-export function calcularInteresRedondeado(
-  baseImponible: number,
-  fechaCreacion: Date,
-  fechaCorte: Date,
-  modulo: ModuloSiim,
-  intereses: InteresisSiim[],
-  esCatastro: boolean = false
-): number {
-  const exact = calcularInteresExacto(
-    baseImponible,
-    fechaCreacion,
-    fechaCorte,
-    modulo,
-    intereses,
-    esCatastro
-  );
-  return Math.round(exact * 100) / 100;
-}
-
 // ─────────────────────────────────────────────────────────────
 // Descuento pronto pago URBANO
 // Aplica solo en el año actual del servidor
@@ -235,7 +160,6 @@ export function calcularDescuentoUrbano(
   }
 
   // Primer semestre → descuento negativo quincenal
-  // Primer semestre → descuento negativo quincenal
   const tabla: [number, number][] = [
     [10, 9],
     [8, 7],
@@ -246,6 +170,8 @@ export function calcularDescuentoUrbano(
   ];
   const quincena = dia <= 15 ? 0 : 1;
   const porcentaje = tabla[mes][quincena];
+
+  // descuento negativo
   return Math.round(basePredial * (porcentaje / 100) * -1 * 100) / 100;
 }
 
@@ -264,13 +190,15 @@ export function calcularDescuentoRural(
 
   // const mes = fechaCorte.getMonth();
   // if (mes >= 6) return 0; // Rural no tiene recargo segundo semestre
+
   if (basePredial <= 0) return 0;
   const ahora = new Date();
   const anioActual = ahora.getFullYear();
   if (anioEmision !== anioActual) return 0;
 
   const mes = ahora.getMonth();
-  if (mes >= 6) return 0; // Rural no tiene recargo
+  if (mes >= 6) return 0; // Rural no tiene recargo segundo semestre
+
   // Descuento fijo 10%
   return Math.round(basePredial * 0.1 * -1 * 100) / 100;
 }
@@ -279,7 +207,7 @@ export function calcularDescuentoRural(
 // Mora (catastro años anteriores)
 // Se calcula sobre base_predial_pura de facturas anteriores al año actual
 // ─────────────────────────────────────────────────────────────
-export async function calcularMoraRedondeada(
+export async function calcularMora(
   baseMora: number,
   anioEmision: number,
   idModulo: number
@@ -290,23 +218,23 @@ export async function calcularMoraRedondeada(
 
   if (baseMora <= 0) return 0;
   const anioActual = new Date().getFullYear();
-  if (anioEmision >= anioActual) return 0;
+  if (anioEmision >= anioActual) return 0; // Solo años anteriores
 
-  const rubro = await getRubroMoraByModulo(idModulo);
-  if (!rubro) return 0;
+  const rubroMora = await getRubroMoraByModulo(idModulo);
+  if (!rubroMora) return 0;
 
   let mora = 0;
-  if (rubro.calculable === 1) {
-    mora = baseMora * (rubro.valor / 100);
+  if (rubroMora.calculable === 1) {
+    mora = baseMora * (rubroMora.valor / 100);
   } else {
-    mora = rubro.valor;
+    mora = rubroMora.valor;
   }
   return Math.round(mora * 100) / 100;
 }
 
-// -------------------------------------------------------------------
-// Consulta principal (facturas individuales)
-// -------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
+// Facturas individuales del SIIM
+// ─────────────────────────────────────────────────────────────
 export async function getDeudasSiim(fechaCorte: Date): Promise<FilaSiim[]> {
   const fechaStr = fechaCorte.toISOString().split("T")[0];
   const sql = GET_DEUDAS_SIIM_SQL(fechaStr, {
