@@ -60,24 +60,21 @@ model DeudaBanco {
   idParametro Int
   parametro   ParametrosCorte @relation(fields: [idParametro], references: [id], onDelete: Cascade)
 
-  tipo          String  @default("CO")
-  contrapartida String
-  moneda        String  @default("USD")
-  valor         Int
-  formaCobro    String  @default("REC")
-  referencia    String  @default("")
-  tipoId        String
-  numeroId      String
-  nombreCliente String
-  idCliente     String
-  totalDecimal  Decimal @db.Decimal(10, 2)
+  // Columnas del formato Banco de Pichincha
+  tipo          String @default("CO") // Siempre CO
+  // contrapartida Int // 1=CNB,2=Ventanilla,3=APP,4=WEB
+  contrapartida String // clave catastral o referencia de agua
+  moneda        String @default("USD") // Siempre USD
+  valor         Int // Centavos: 123.90 → 12390
+  formaCobro    String @default("REC") // Siempre REC
+  referencia    String @default("") // Clave catastral o referencia
+  tipoId        String // C=cedula R=ruc P=pasaporte
+  numeroId      String // Número del documento
+  nombreCliente String // APELLIDO NOMBRE
 
-  // ── Desglose para auditoría y debug ──────────────────────
-  montoNominal   Decimal @default(0) @db.Decimal(10, 2) // rubros base sin calcular
-  montoInteres   Decimal @default(0) @db.Decimal(10, 2) // interés calculado
-  montoMora      Decimal @default(0) @db.Decimal(10, 2) // mora (catastro años anteriores)
-  montoDescuento Decimal @default(0) @db.Decimal(10, 2) // descuento pronto pago (negativo)
-  montoRecargo   Decimal @default(0) @db.Decimal(10, 2) // recargo segundo semestre (positivo)
+  // Campos extra para el Excel / trazabilidad
+  idCliente    String
+  totalDecimal Decimal @db.Decimal(10, 2) // Valor legible (ej: 123.90)
 
   @@map("deuda_banco")
 }

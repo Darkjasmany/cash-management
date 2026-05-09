@@ -19,20 +19,43 @@ export interface FilaSiim {
 }
 
 // ─── Registro consolidado listo para guardar / exportar ──────
+// export interface RegistroDeuda {
+//   tipo: string; // "CO"
+//   contrapartida: string; // clave catastral o referencia de agua
+//   moneda: string; // "USD"
+//   valor: number; // centavos enteros (123.90 → 12390)
+//   formaCobro: string; // "REC"
+//   ref1: string; // EN BLANCO
+//   ref2: string; // EN BLANCO
+//   referencia: string; // texto legible para el banco
+//   tipoId: string; // C | R | P
+//   numeroId: string; // número de cédula/ruc/pasaporte
+//   nombreCliente: string;
+//   idCliente: string;
+//   totalDecimal: number; // para Excel legible, valor en USD con decimales (ej: 123.90)
+// }
+
 export interface RegistroDeuda {
-  tipo: string; // "CO"
-  contrapartida: string; // clave catastral o referencia de agua
-  moneda: string; // "USD"
-  valor: number; // centavos enteros (123.90 → 12390)
-  formaCobro: string; // "REC"
-  ref1: string; // EN BLANCO
-  ref2: string; // EN BLANCO
-  referencia: string; // texto legible para el banco
-  tipoId: string; // C | R | P
-  numeroId: string; // número de cédula/ruc/pasaporte
+  tipo: string;
+  contrapartida: string;
+  moneda: string;
+  valor: number;
+  formaCobro: string;
+  ref1: string;
+  ref2: string;
+  referencia: string;
+  tipoId: string;
+  numeroId: string;
   nombreCliente: string;
   idCliente: string;
-  totalDecimal: number; // para Excel legible, valor en USD con decimales (ej: 123.90)
+  totalDecimal: number;
+
+  // Nuevos campos para desglose (opcionales, pero los usas en createMany)
+  montoNominal?: number;
+  montoInteres?: number;
+  montoMora?: number;
+  montoDescuento?: number;
+  montoRecargo?: number;
 }
 
 // ─── Resultado del proceso ────────────────────────────────────
