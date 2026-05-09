@@ -113,7 +113,6 @@ export function calcularInteres(
 
   // Fórmula idéntica al Java:
   // totalIntereses = (totalPorcentaje * (modulo.porcentaje / 100)) / 100
-  // Aplica el porcentaje del módulo al total de intereses acumulados
   const totalIntereses = (totalPorcentaje * ((modulo.porcentaje || 0) / 100)) / 100;
   const valorInteres = totalIntereses * baseImponible;
 
@@ -129,16 +128,15 @@ export function calcularInteres(
 // Primer semestre  → descuento negativo escalonado por quincena
 // Segundo semestre → recargo positivo fijo +10%
 // ─────────────────────────────────────────────────────────────
-export function calcularDescuentoRecargoProntoPago(
-  valorImpuesto: number,
-  fechaCorte: Date
-): number {
-  const mes = fechaCorte.getMonth(); // 0 = Enero
+export function calcularDescuentoRecargoProntoPago(basePredial: number, fechaCorte: Date): number {
+  if (!basePredial || basePredial === 0) return 0;
+
+  const mes = fechaCorte.getMonth(); // 0=Enero … 11=Diciembre
   const dia = fechaCorte.getDate();
 
   // Segundo Semestre (Julio a Diciembre): Recargo del 10% fijo
   if (mes >= 6) {
-    return Math.round(valorImpuesto * 0.1 * 100) / 100;
+    return Math.round(basePredial * 0.1 * 100) / 100;
   }
 
   // Primer Semestre: Descuentos quincenales (10% a 1%)
@@ -155,7 +153,7 @@ export function calcularDescuentoRecargoProntoPago(
   const porcentaje = tablaDescuentos[mes][quincena];
 
   // Es negativo porque es un descuento
-  const descuento = valorImpuesto * (porcentaje / 100) * -1;
+  const descuento = basePredial * (porcentaje / 100) * -1;
   return Math.round(descuento * 100) / 100;
 }
 

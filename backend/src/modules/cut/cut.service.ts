@@ -7,7 +7,7 @@ import {
   getInteresesSiim,
   getModuloSiim,
 } from "@/services/siim.service";
-import type { RegistroDeuda, ResultadoProceso } from "@/types";
+import type { ModuloSiim, RegistroDeuda, ResultadoProceso } from "@/types";
 import ExcelJS from "exceljs";
 
 const MODULO_CATASTRO_URBANO = parseInt(env?.MODULO_CATASTRO_URBANO ?? "1");
@@ -41,8 +41,26 @@ interface GrupoDeuda {
   id_cliente: number;
   id_modulo: number;
   contrapartida: string;
-  anios: Set<string>; // años de las facturas agrupadas
-  totalFinal: number; // suma de (nominal + interes + prontoPago) por factura
+  // Para catastro: años de las facturas ("2022", "2023"...)
+  // Para agua:     códigos de emisión ("2602", "2603", "2604"...)
+  periodos: Set<string>;
+  totalFinal: number;
+  // Solo agua: parte fija de la referencia "Agua. Med: 08070514"
+  refBaseAgua: string;
+}
+
+// Extrae el código de emisión del texto del query
+// Ej: "Agua. Med: 08070514 Emisión: 2604" → "2604"
+function extraerEmision(referencia: string): string {
+  const match = referencia.match(/Emisión:\s*(\S+)/);
+  return match ? match[1] : "";
+}
+
+// Extrae la parte fija del agua: "Agua. Med: 08070514"
+// (todo antes de " Emisión:")
+function extraerRefBaseAgua(referencia: string): string {
+  const idx = referencia.indexOf(" Emisión:");
+  return idx > 0 ? referencia.substring(0, idx) : referencia;
 }
 
 export class CutService {
@@ -96,114 +114,213 @@ export class CutService {
     // ── 4. Consulta el SIIM ───────────────────────────────────
     console.log("📡 Consultando SIIM...");
     const [filasRaw, intereses, moduloUrbano, moduloRural, moduloAgua] = await Promise.all([
-      getDeudasSiim(new Date(fechaCorte)),
-      getInteresesSiim(),
+      getDeudasSiim(fechaCorte), // facturas individuales
+      getInteresesSiim(), // tabla de % de intereses
+      getModuloSiim(MODULO_CATASTRO_URBANO),
+      getModuloSiim(MODULO_CATASTRO_RURAL),
+      getModuloSiim(MODULO_AGUA_POTABLE),
     ]);
 
-    // 5. Para cada fila, calcula intereses y construye registro
-    const registros: RegistroDeuda[] = [];
+    console.log(`📊 Facturas del SIIM: ${filasRaw.length}`);
+    console.log(`📊 Registros de intereses: ${intereses.length}`);
+
+    if (filasRaw.length === 0) {
+      console.warn("⚠️  No se encontraron facturas en el SIIM para esta fecha de corte.");
+      return {
+        idParametro: corte.id,
+        fechaCorte: corte.fechaCorte.toISOString().split("T")[0],
+        totalRegistros: 0,
+        totalDeuda: 0,
+      };
+    }
+
+    const moduloMap: Record<number, ModuloSiim | null> = {
+      [MODULO_CATASTRO_URBANO]: moduloUrbano,
+      [MODULO_CATASTRO_RURAL]: moduloRural,
+      [MODULO_AGUA_POTABLE]: moduloAgua,
+    };
+
+    // ── 5 y 6. Procesa y agrupa ───────────────────────────────
+    //
+    // Por cada factura:
+    //   a) base_interes = total_nominal - servicio_administrativo
+    //      (el Java excluye SA de la base imponible del interés)
+    //
+    //   b) interes = calcularInteres(base_interes, fechaCreacion, fechaCorte, modulo)
+    //      → usa la fecha REAL de la factura, no un promedio
+    //
+    //   c) pronto pago (solo catastro del año en curso):
+    //      base = base_predial_pura (impuesto predial + exoneración)
+    //      Ene-Jun → descuento negativo escalonado por quincena
+    //      Jul-Dic → recargo positivo fijo +10%
+    //
+    //   d) total_factura = total_nominal + interes + prontoPago
+    //
+    //   e) Agrupa: mismo cliente+módulo+contrapartida → suma total_factura
+    //
+
+    // ─────────────────────────────────────────────────────────
+    // 5. Procesa cada factura y agrupa
+    //
+    // LÓGICA POR MÓDULO:
+    //
+    // CATASTRO (urbano/rural):
+    //   - base_interes = total_nominal - servicio_administrativo
+    //   - interes solo cuenta desde el año siguiente si la factura
+    //     es de un año anterior (regla Java esCatastro)
+    //   - pronto pago solo si anio_factura == anio_corte
+    //   - agrupa por: cliente + modulo + contrapartida (clave catastral)
+    //   - período = año de la factura
+    //
+    // AGUA:
+    //   - base_interes = total_nominal - servicio_administrativo
+    //   - sin pronto pago
+    //   - agrupa por: cliente + modulo + contrapartida (id_abonado)
+    //     IMPORTANTE: una cuenta puede tener N emisiones del mismo año
+    //     → se deben agrupar todas con sus emisiones como períodos
+    //   - período = código de emisión (ej: "2604")
+    // ─────────────────────────────────────────────────────────
+
+    const mapa = new Map<string, GrupoDeuda>();
 
     for (const fila of filasRaw) {
-      const modulo = await getModuloSiim(fila.id_modulo);
-      if (!modulo) continue; // Si no se encuentra configuración del módulo, omitir
-
-      // El total ya viene sumado de la BD (rubros sin intereses)
-      // Calculamos el interés adicional sobre ese total
-      const totalNominal = Number(fila.total_deuda) || 0;
-      const interes = calcularInteres(
-        totalNominal,
-        new Date(fila.fecha_emision_max), //fecha de creación (approx: usamos hoy si no la traemos)
-        fechaCorte,
-        modulo,
-        intereses
-      );
-
-      // Lógica de Pronto Pago (Aplica solo si el periodo es el año actual y es Predio)
-      let ajusteProntoPago = 0;
-      const anioEmision = new Date(fila.fecha_emision_max).getFullYear();
-      // periodoEmision: YYYY como número
-      // const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
-      // const periodoActual = toPeriodo(fechaCorte);
-
-      if (
-        anioEmision === 2026 &&
-        (fila.id_modulo === MODULO_CATASTRO_URBANO || fila.id_modulo === MODULO_CATASTRO_RURAL)
-      ) {
-        ajusteProntoPago = calcularDescuentoRecargoProntoPago(totalNominal, fechaCorte);
+      const modulo = moduloMap[fila.id_modulo];
+      if (!modulo) {
+        console.warn(`⚠️  Módulo ${fila.id_modulo} sin config, factura ${fila.id_factura} omitida`);
+        continue;
       }
 
-      // Suma final
-      // const totalConInteres = Math.round((fila.total_deuda + interes) * 100) / 100; // Convertimos a centavos enteros para el formato requerido
-      // const valorCentavos = Math.round(totalConInteres * 100); // sin decimales
+      const totalNominal = Number(fila.total_nominal) || 0;
+      const sa = Number(fila.servicio_administrativo) || 0;
+      const basePredial = Number(fila.base_predial_pura) || 0;
 
-      const totalConAjustes = totalNominal + interes + ajusteProntoPago;
-      // const totalConAjustes = Math.round((totalNominal + interes + ajusteProntoPago) * 100) / 100; // Convertimos a centavos enteros para el formato requerido
-      const valorCentavos = Math.round(totalConAjustes * 100);
+      // Ignorar facturas sin valor
+      if (totalNominal <= 0) continue;
 
-      // if (valorCentavos <= 0) continue; // Si la deuda total con intereses es cero o negativa, omitimos
+      const esCatastro =
+        fila.id_modulo === MODULO_CATASTRO_URBANO || fila.id_modulo === MODULO_CATASTRO_RURAL;
+
+      // a) Base imponible del interés
+      const baseInteres = Math.max(0, totalNominal - sa);
+
+      // b) Interés con la fecha real de la factura
+      const interes = calcularInteres(
+        baseInteres,
+        new Date(fila.fecha_creacion),
+        fechaCorte,
+        modulo,
+        intereses,
+        esCatastro
+      );
+
+      // c) Pronto pago (solo catastro del año actual)
+      let prontoPago = 0;
+      if (esCatastro && new Date(fila.fecha_creacion).getFullYear() === anioCorte) {
+        prontoPago = calcularDescuentoRecargoProntoPago(basePredial, fechaCorte);
+      }
+
+      // d) Total de esta factura
+      const totalFactura = totalNominal + interes + prontoPago;
+
+      // TODO Agrega esto después de calcular interes en el loop:
+      if (esCatastro) {
+        console.log(
+          `Factura ${fila.id_factura} | base: ${baseInteres} | interes: ${interes} | prontoPago: ${prontoPago}`
+        );
+      }
+
+      // e) Agrupa
+      let periodo: string;
+      let refBaseAgua = "";
+
+      if (esCatastro) {
+        periodo = new Date(fila.fecha_creacion).getFullYear().toString();
+      } else {
+        // El query ya trae: "Agua. Med: 08070514 Emisión: 2604"
+        periodo = extraerEmision(fila.referencia);
+        refBaseAgua = extraerRefBaseAgua(fila.referencia);
+        // Si por alguna razón no hay emisión, usamos el año
+        if (!periodo) periodo = new Date(fila.fecha_creacion).getFullYear().toString();
+      }
+
+      // Para agua: agrupamos por cliente + modulo + contrapartida (id_abonado)
+      // NO incluimos la emisión en la clave → todas las emisiones de un
+      // mismo abonado se consolidan en una sola línea con sus emisiones listadas
+      const clave = `${fila.id_cliente}|${fila.id_modulo}|${fila.contrapartida}`;
+
+      const existing = mapa.get(clave);
+      if (existing) {
+        existing.totalFinal += totalFactura;
+        existing.periodos.add(periodo);
+        // Para agua: actualiza refBase si tiene más datos (por si el 1er registro era vacío)
+        if (!esCatastro && refBaseAgua && !existing.refBaseAgua) {
+          existing.refBaseAgua = refBaseAgua;
+        }
+      } else {
+        mapa.set(clave, {
+          cedula: fila.cedula,
+          tipoId: getTipoId(fila.cedula),
+          nombre_cliente: fila.nombre_cliente,
+          id_cliente: fila.id_cliente,
+          id_modulo: fila.id_modulo,
+          contrapartida: fila.contrapartida,
+          periodos: new Set([periodo]),
+          totalFinal: totalFactura,
+          refBaseAgua,
+        });
+      }
+    }
+
+    console.log(`📦 Grupos consolidados: ${mapa.size}`);
+
+    // ── 7. Construye registros finales ────────────────────────
+    const registros: RegistroDeuda[] = [];
+
+    for (const [, grupo] of mapa) {
+      const totalRedondeado = Math.round(grupo.totalFinal * 100) / 100;
+      const valorCentavos = Math.round(totalRedondeado * 100);
+
       if (isNaN(valorCentavos) || valorCentavos <= 0) continue;
 
-      // Completar con los campos necesarios, usando fila y las constantes de configuración
+      // Texto de referencia según módulo
+      const periodosOrdenados = [...grupo.periodos].sort().join(", ");
+      let referencia = "";
+
+      if (grupo.id_modulo === MODULO_CATASTRO_URBANO) {
+        // Ejemplo: "Catastro urbano. Clave: 0911501401016004 Años: 2023, 2024, 2026"
+        referencia = `Catastro urbano. Años: ${periodosOrdenados}`;
+      } else if (grupo.id_modulo === MODULO_CATASTRO_RURAL) {
+        referencia = `Catastro rural. Años: ${periodosOrdenados}`;
+      } else {
+        // Agua: "Agua. Med: 08070514 Emisiones: 2602, 2603, 2604"
+        // refBaseAgua ya trae "Agua. Med: 08070514"
+        referencia = `${grupo.refBaseAgua} Emisiones: ${periodosOrdenados}`;
+      }
+
       registros.push({
         tipo: "CO",
-        contrapartida: fila.contrapartida ?? "", //clave catastral o referencia de aagua
+        contrapartida: grupo.contrapartida,
         moneda: "USD",
         valor: valorCentavos,
         formaCobro: "REC",
         ref1: "",
         ref2: "",
-        referencia: fila.referencia ?? "",
-        tipoId: fila.tipo_id ?? "C",
-        numeroId: fila.cedula ?? "",
-        nombreCliente: fila.nombre_cliente ?? "",
-        idCliente: String(fila.id_cliente),
-        // totalDecimal: totalConInteres,
-        totalDecimal: totalConAjustes,
+        referencia,
+        tipoId: grupo.tipoId,
+        numeroId: grupo.cedula,
+        nombreCliente: grupo.nombre_cliente,
+        idCliente: String(grupo.id_cliente),
+        totalDecimal: totalRedondeado,
       });
     }
 
-    // 6. Guarda en BD propia (batch insert)
-    /*if (registros.length > 0) {
-      await prisma.deudaBanco.createMany({
-        data: registros.map(r => ({
-          idParametro: corte.id,
-          tipo: r.tipo,
-          contrapartida: r.contrapartida,
-          moneda: r.moneda,
-          valor: r.valor,
-          formaCobro: r.formaCobro,
-          referencia: r.referencia,
-          tipoId: r.tipoId,
-          numeroId: r.numeroId,
-          nombreCliente: r.nombreCliente,
-          idCliente: r.idCliente,
-          totalDecimal: r.totalDecimal,
-        })),
-      });
-    } */
+    console.log(`💾 Registros a insertar en BD: ${registros.length}`);
 
-    /**
-       * El for y su contador (i += chunkSize)
-        Normalmente usamos i++ (sumar 1), pero aquí estamos procesando por lotes:
-        let i = 0: Empezamos en la posición cero.
-        i < registros.length: Seguimos mientras no hayamos llegado al final de los 37k.
-        i += chunkSize: En lugar de saltar de 1 en 1, saltamos de 5,000 en 5,000.
-        Iteración 1: i es 0.
-        Iteración 2: i es 5,000.
-        Iteración 3: i es 10,000... y así sucesivamente.
-       * El slice(i, i + chunkSize)
-        El método slice sirve para "cortar" una parte de un arreglo sin modificar el original.
-        ¿Cómo funciona?: Toma los elementos desde el índice i hasta el i + chunkSize (sin incluir el último).
-        En la primera vuelta: registros.slice(0, 5000).
-        En la segunda vuelta: registros.slice(5000, 10000).
-        Esto te asegura que cada llamada a prisma.createMany solo reciba una lista de 5,000 elementos.
-       */
-
+    // ── 8. Inserta en lotes de 5000 ───────────────────────────
     if (registros.length > 0) {
       const chunkSize = 5000;
       for (let i = 0; i < registros.length; i += chunkSize) {
         const chunk = registros.slice(i, i + chunkSize);
-        console.log("Primer registro a insertar:", JSON.stringify(chunk[0], null, 2));
         await prisma.deudaBanco.createMany({
           data: chunk.map(r => ({
             idParametro: corte.id,
@@ -216,16 +333,21 @@ export class CutService {
             tipoId: r.tipoId,
             numeroId: r.numeroId,
             nombreCliente: r.nombreCliente,
-            idCliente: String(r.idCliente),
+            idCliente: r.idCliente,
             totalDecimal: r.totalDecimal,
           })),
         });
-        console.log(`✅ Insertados ${i + chunk.length} de ${registros.length}...`);
+        console.log(
+          `  ✅ ${Math.min(i + chunkSize, registros.length)} / ${registros.length} insertados`
+        );
       }
     }
 
-    // 7. Retorna resultado del proceso
     const totalDeuda = registros.reduce((acc, r) => acc + r.totalDecimal, 0);
+    console.log(
+      `🎉 Corte completado. Registros: ${registros.length} | Total: $${Math.round(totalDeuda * 100) / 100}\n`
+    );
+
     return {
       idParametro: corte.id,
       fechaCorte: corte.fechaCorte.toISOString().split("T")[0],
@@ -284,6 +406,11 @@ export class CutService {
 
   // ─────────────────────────────────────────────────────────────
   // GENERAR TXT: formato exacto Banco de Pichincha (tab-separado)
+  //
+  // Columnas tab-separadas, terminación CRLF:
+  // TIPO | CONTRAPARTIDA | MONEDA | VALOR | COBRO | '' | '' | REFERENCIA | TIPOID | NUMEROID | NOMBRE
+  //
+  // VALOR: entero en centavos sin punto decimal (123.90 → 12390)
   // ─────────────────────────────────────────────────────────────
   static async generateTxt(): Promise<string> {
     const corte = await prisma.parametrosCorte.findFirst({
@@ -336,6 +463,7 @@ export class CutService {
       pageSetup: { paperSize: 9, orientation: "landscape" },
     });
 
+    // Fila 1: encabezado de información
     // ── Cabecera de información ─────────────────────────────────
     ws.mergeCells("A1:K1");
     ws.getCell("A1").value =
@@ -349,19 +477,20 @@ export class CutService {
     // ── Columnas ────────────────────────────────────────────────
     ws.columns = [
       { header: "TIPO", key: "tipo", width: 8 },
-      { header: "CONTRAPARTIDA", key: "contrapartida", width: 14 },
+      { header: "CONTRAPARTIDA", key: "contrapartida", width: 22 },
       { header: "MONEDA", key: "moneda", width: 8 },
       { header: "VALOR (cents.)", key: "valor", width: 14 },
       { header: "VALOR (USD)", key: "valorDecimal", width: 14 },
       { header: "FORMA COBRO", key: "formaCobro", width: 12 },
       { header: "EN BLANCO", key: "ref1", width: 10 },
       { header: "EN BLANCO", key: "ref2", width: 10 },
-      { header: "REFERENCIA", key: "referencia", width: 30 },
+      { header: "REFERENCIA", key: "referencia", width: 42 },
       { header: "TIPO ID", key: "tipoId", width: 9 },
-      { header: "NUMERO ID", key: "numeroId", width: 14 },
-      { header: "NOMBRE CLIENTE", key: "nombreCliente", width: 35 },
+      { header: "NUMERO ID", key: "numeroId", width: 15 },
+      { header: "NOMBRE CLIENTE", key: "nombreCliente", width: 38 },
     ];
 
+    // Fila 2: cabecera de columnas
     // Estilo de cabecera de columnas (fila 2)
     const headerRow = ws.getRow(2);
     headerRow.eachCell(cell => {
@@ -391,7 +520,7 @@ export class CutService {
         nombreCliente: d.nombreCliente,
       });
 
-      // Filas alternas
+      // Filas alternas con fondo suave
       if (idx % 2 === 0) {
         row.eachCell(cell => {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F7FF" } };
