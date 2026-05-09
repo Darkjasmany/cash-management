@@ -132,20 +132,27 @@ export function calcularInteres(
 
 // ─────────────────────────────────────────────────────────────
 // Descuento pronto pago URBANO
-// Aplica solo en el año actual
+// Aplica solo en el año actual del servidor
 // Primer semestre: descuento escalonado quincenal (negativo)
 // Segundo semestre: recargo fijo +10% (positivo)
 // ─────────────────────────────────────────────────────────────
 export function calcularDescuentoUrbano(
   basePredial: number,
-  anioEmision: number,
-  fechaCorte: Date
+  anioEmision: number
+  // fechaCorte: Date
 ): number {
-  if (basePredial <= 0) return 0;
-  if (anioEmision !== fechaCorte.getFullYear()) return 0;
+  // if (basePredial <= 0) return 0;
+  // if (anioEmision !== fechaCorte.getFullYear()) return 0;
 
-  const mes = fechaCorte.getMonth(); // 0=Enero
-  const dia = fechaCorte.getDate();
+  if (basePredial <= 0) return 0;
+  const ahora = new Date();
+  const anioActual = ahora.getFullYear();
+  if (anioEmision !== anioActual) return 0;
+
+  // const mes = fechaCorte.getMonth(); // 0=Enero
+  // const dia = fechaCorte.getDate();
+  const mes = ahora.getMonth(); // 0=Enero
+  const dia = ahora.getDate();
 
   if (mes >= 6) {
     // Segundo semestre → recargo +10%
@@ -163,25 +170,36 @@ export function calcularDescuentoUrbano(
   ];
   const quincena = dia <= 15 ? 0 : 1;
   const porcentaje = tabla[mes][quincena];
+
+  // descuento negativo
   return Math.round(basePredial * (porcentaje / 100) * -1 * 100) / 100;
 }
 
 // ─────────────────────────────────────────────────────────────
-// Descuento pronto pago RURAL
+// Descuento pronto pago RURAL (usa fecha actual)
 // Solo primer semestre → descuento fijo 10% (negativo)
 // Segundo semestre → 0 (no hay recargo en rural)
 // ─────────────────────────────────────────────────────────────
 export function calcularDescuentoRural(
   basePredial: number,
-  anioEmision: number,
-  fechaCorte: Date
+  anioEmision: number
+  // fechaCorte: Date
 ): number {
-  if (basePredial <= 0) return 0;
-  if (anioEmision !== fechaCorte.getFullYear()) return 0;
+  // if (basePredial <= 0) return 0;
+  // if (anioEmision !== fechaCorte.getFullYear()) return 0;
 
-  const mes = fechaCorte.getMonth();
+  // const mes = fechaCorte.getMonth();
+  // if (mes >= 6) return 0; // Rural no tiene recargo segundo semestre
+
+  if (basePredial <= 0) return 0;
+  const ahora = new Date();
+  const anioActual = ahora.getFullYear();
+  if (anioEmision !== anioActual) return 0;
+
+  const mes = ahora.getMonth();
   if (mes >= 6) return 0; // Rural no tiene recargo segundo semestre
 
+  // Descuento fijo 10%
   return Math.round(basePredial * 0.1 * -1 * 100) / 100;
 }
 
@@ -192,11 +210,15 @@ export function calcularDescuentoRural(
 export async function calcularMora(
   baseMora: number,
   anioEmision: number,
-  idModulo: number,
-  fechaCorte: Date
+  idModulo: number
+  // fechaCorte: Date
 ): Promise<number> {
+  // if (baseMora <= 0) return 0;
+  // if (anioEmision >= fechaCorte.getFullYear()) return 0; // Solo años anteriores
+
   if (baseMora <= 0) return 0;
-  if (anioEmision >= fechaCorte.getFullYear()) return 0; // Solo años anteriores
+  const anioActual = new Date().getFullYear();
+  if (anioEmision >= anioActual) return 0; // Solo años anteriores
 
   const rubroMora = await getRubroMoraByModulo(idModulo);
   if (!rubroMora) return 0;

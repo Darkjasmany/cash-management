@@ -135,9 +135,11 @@ export class CutService {
       let descuentoRecargo = 0;
       if (esCatastro && esAnioActual) {
         if (fila.id_modulo === MODULO_CATASTRO_URBANO) {
-          descuentoRecargo = calcularDescuentoUrbano(basePredial, anioEmision, fechaCorte);
+          // descuentoRecargo = calcularDescuentoUrbano(basePredial, anioEmision, fechaCorte);
+          descuentoRecargo = calcularDescuentoUrbano(basePredial, anioEmision);
         } else {
-          descuentoRecargo = calcularDescuentoRural(basePredial, anioEmision, fechaCorte);
+          // descuentoRecargo = calcularDescuentoRural(basePredial, anioEmision, fechaCorte);
+          descuentoRecargo = calcularDescuentoRural(basePredial, anioEmision);
         }
       }
 
@@ -163,7 +165,8 @@ export class CutService {
 
       // ── 4. Mora (solo años anteriores al actual) ──────────
       const moraExacta = esCatastro
-        ? await calcularMora(basePredial, anioEmision, fila.id_modulo, fechaCorte)
+        ? // ? await calcularMora(basePredial, anioEmision, fila.id_modulo, fechaCorte)
+          await calcularMora(basePredial, anioEmision, fila.id_modulo)
         : 0;
 
       // ── 5. Total de esta factura ───────────────────────────
