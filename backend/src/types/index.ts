@@ -57,3 +57,10 @@ export interface ModuloSiim {
   porcentaje: number; // factor de aplicación del módulo
   diasAdicionales: number;
 }
+
+export interface RubroSiim {
+  id: number;
+  calculable: number; // 1 = porcentaje, 0 = valor fijo
+  valor: number; // porcentaje o valor fijo
+  descripcion: string;
+}
