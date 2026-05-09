@@ -41,32 +41,18 @@ export async function getModuloSiim(idModulo: number): Promise<ModuloSiim | null
 }
 
 // ---------------------------------------------------------------------
-// Obtener un rubro por ID (para mora, coactiva, etc.)
+// Obtener rubro de mora según módulo: 302 = urbano, 303 = rural
 // ---------------------------------------------------------------------
-export async function getRubroById(idRubro: number): Promise<RubroSiim | null> {
+export async function getRubroMoraByModulo(idModulo: number): Promise<RubroSiim | null> {
+  const rubroId = idModulo === MODULO_CATASTRO_URBANO ? 302 : 303;
   try {
     const res = await siimPool.query<RubroSiim>(
       `SELECT id, calculable, valor, descripcion FROM rubro WHERE id = $1`,
-      [idRubro]
+      [rubroId]
     );
     return res.rows[0] || null;
   } catch (error) {
-    console.error(`Error al obtener rubro ${idRubro}:`, error);
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------
-// Obtener parámetros de configuración (CALCULA_MORA_COACTIVA_URBANO, etc.)
-// ---------------------------------------------------------------------
-export async function getConfigParametro(nombre: string): Promise<string | null> {
-  try {
-    const res = await siimPool.query(`SELECT valor FROM siim_parametros WHERE nombre = $1`, [
-      nombre,
-    ]);
-    return res.rows[0]?.valor || null;
-  } catch (error) {
-    console.error(`Error al obtener parámetro ${nombre}:`, error);
+    console.error(`Error al obtener rubro de mora ${rubroId}:`, error);
     return null;
   }
 }
@@ -99,7 +85,6 @@ export function calcularInteres(
   const fechaInicio = new Date(fechaCreacion);
   fechaInicio.setDate(fechaInicio.getDate() + (modulo.diasAdicionales || 0));
 
-  // Regla crítica: para catastro, solo se suman meses si el año de inicio == año de corte
   const anioInicio = fechaInicio.getFullYear();
   const anioCorte = fechaCorte.getFullYear();
   const subirMeses = !esCatastro || (esCatastro && anioInicio === anioCorte);
@@ -131,11 +116,7 @@ export function calcularInteres(
 // ---------------------------------------------------------------------
 // Pronto pago para URBANO (descuentos quincenales o recargo fijo 10%)
 // ---------------------------------------------------------------------
-export function calcularDescuentoUrbano(
-  basePredial: number,
-  fechaCorte: Date,
-  anioEmision: number
-): number {
+export function calcularDescuentoUrbano(basePredial: number, anioEmision: number): number {
   if (basePredial <= 0) return 0;
   const ahora = new Date();
   const anioActual = ahora.getFullYear();
@@ -145,11 +126,9 @@ export function calcularDescuentoUrbano(
   const dia = ahora.getDate();
 
   if (mes >= 6) {
-    // Recargo 10% en segundo semestre
     return Math.round(basePredial * 0.1 * 100) / 100;
   }
 
-  // Descuentos quincenales primer semestre
   const tabla = [
     [10, 9],
     [8, 7],
@@ -167,71 +146,40 @@ export function calcularDescuentoUrbano(
 // ---------------------------------------------------------------------
 // Pronto pago RURAL (descuento fijo 10% solo primer semestre, sin recargo)
 // ---------------------------------------------------------------------
-export function calcularDescuentoRural(
-  basePredial: number,
-  fechaCorte: Date,
-  anioEmision: number
-): number {
+export function calcularDescuentoRural(basePredial: number, anioEmision: number): number {
   if (basePredial <= 0) return 0;
   const ahora = new Date();
   const anioActual = ahora.getFullYear();
   if (anioEmision !== anioActual) return 0;
 
   const mes = ahora.getMonth();
-  // Solo aplica descuento si estamos en primer semestre (enero-junio)
   if (mes >= 6) return 0;
-
-  // Descuento fijo del 10%
   const descuento = basePredial * 0.1 * -1;
   return Math.round(descuento * 100) / 100;
 }
 
 // ---------------------------------------------------------------------
-// Cálculo de MORA (rubro 303) y COACTIVA (rubro 295 o 296 según módulo)
+// Cálculo de MORA según rubro (302 urbano, 303 rural)
 // ---------------------------------------------------------------------
-export async function calcularMoraCoactiva(
-  totalSinMora: number, // totalFactura sin incluir mora ni coactiva
-  valorImpuesto: number,
-  valorExoneracion: number,
-  idModulo: number,
-  anioEmision: number
-): Promise<{ mora: number; coactiva: number }> {
-  let mora = 0;
-  let coactiva = 0;
-
-  // Verificar si la configuración está activa
-  const configKey =
-    idModulo === MODULO_CATASTRO_URBANO
-      ? "CALCULA_MORA_COACTIVA_URBANO"
-      : "CALCULA_MORA_COACTIVA_RURAL";
-  const activo = await getConfigParametro(configKey);
-  if (activo !== "true") return { mora, coactiva };
-
+export async function calcularMora(
+  baseMora: number,
+  anioEmision: number,
+  idModulo: number
+): Promise<number> {
+  if (baseMora <= 0) return 0;
   const anioActual = new Date().getFullYear();
-  // Según Java, solo aplica si la factura es de años anteriores
-  if (anioEmision >= anioActual) return { mora, coactiva };
+  if (anioEmision >= anioActual) return 0;
 
-  const rubroMora = await getRubroById(303);
-  const rubroCoactivaId = idModulo === MODULO_CATASTRO_URBANO ? 296 : 295;
-  const rubroCoactiva = await getRubroById(rubroCoactivaId);
+  const rubroMora = await getRubroMoraByModulo(idModulo);
+  if (!rubroMora) return 0;
 
-  // Mora: (impuesto + exoneración) * porcentaje
-  if (rubroMora && rubroMora.calculable === 1) {
-    mora = (valorImpuesto + valorExoneracion) * (rubroMora.valor / 100);
-    mora = Math.round(mora * 100) / 100;
-  } else if (rubroMora && rubroMora.calculable === 0) {
+  let mora = 0;
+  if (rubroMora.calculable === 1) {
+    mora = baseMora * (rubroMora.valor / 100);
+  } else if (rubroMora.calculable === 0) {
     mora = rubroMora.valor;
   }
-
-  // Coactiva: sobre (totalSinMora + mora) * porcentaje
-  if (rubroCoactiva && rubroCoactiva.calculable === 1) {
-    coactiva = (totalSinMora + mora) * (rubroCoactiva.valor / 100);
-    coactiva = Math.round(coactiva * 100) / 100;
-  } else if (rubroCoactiva && rubroCoactiva.calculable === 0) {
-    coactiva = rubroCoactiva.valor;
-  }
-
-  return { mora, coactiva };
+  return Math.round(mora * 100) / 100;
 }
 
 // ---------------------------------------------------------------------

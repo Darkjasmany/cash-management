@@ -4,7 +4,7 @@ import {
   calcularDescuentoRural,
   calcularDescuentoUrbano,
   calcularInteres,
-  calcularMoraCoactiva,
+  calcularMora,
   getDeudasSiim,
   getInteresesSiim,
   getModuloSiim,
@@ -34,7 +34,6 @@ interface GrupoDeuda {
   totalNominalAcum: number;
   totalInteresAcum: number;
   totalMoraAcum: number;
-  totalCoactivaAcum: number;
   totalFinal: number;
   refBaseAgua: string;
 }
@@ -59,13 +58,11 @@ export class CutService {
 
     console.log(`\n🔄 Iniciando corte: ${fechaCorteStr} | Usuario: ${nombreUsuario}`);
 
-    // 1. Desactivar corte activo anterior
     await prisma.parametrosCorte.updateMany({
       where: { estado: "ACTIVO" },
       data: { estado: "INACTIVO" },
     });
 
-    // 2. Crear nuevo corte
     const corte = await prisma.parametrosCorte.create({
       data: {
         fechaCorte,
@@ -76,12 +73,10 @@ export class CutService {
     });
     console.log(`✅ Corte #${corte.id} creado`);
 
-    // 3. Limpiar deudas de cortes inactivos
     await prisma.deudaBanco.deleteMany({
       where: { parametro: { estado: "INACTIVO" } },
     });
 
-    // 4. Obtener datos del SIIM
     console.log("📡 Consultando SIIM...");
     const [filasRaw, intereses, moduloUrbano, moduloRural, moduloAgua] = await Promise.all([
       getDeudasSiim(fechaCorte),
@@ -118,7 +113,7 @@ export class CutService {
 
       const totalNominal = Number(fila.total_nominal) || 0;
       const sa = Number(fila.servicio_administrativo) || 0;
-      const basePredial = Number(fila.base_predial_pura) || 0; // impuesto + exoneración
+      const basePredial = Number(fila.base_predial_pura) || 0;
       if (totalNominal <= 0) continue;
 
       const esCatastro =
@@ -126,18 +121,17 @@ export class CutService {
       const fechaCreacion = new Date(fila.fecha_creacion);
       const anioEmision = fechaCreacion.getFullYear();
 
-      // -------------------- 1. PRONTO PAGO (descuento/recargo) --------------------
+      // 1. Descuento/Recargo (solo catastro año actual)
       let descuentoRecargo = 0;
       if (esCatastro && anioEmision === anioCorte) {
         if (fila.id_modulo === MODULO_CATASTRO_URBANO) {
-          descuentoRecargo = calcularDescuentoUrbano(basePredial, fechaCorte, anioEmision);
+          descuentoRecargo = calcularDescuentoUrbano(basePredial, anioEmision);
         } else if (fila.id_modulo === MODULO_CATASTRO_RURAL) {
-          descuentoRecargo = calcularDescuentoRural(basePredial, fechaCorte, anioEmision);
+          descuentoRecargo = calcularDescuentoRural(basePredial, anioEmision);
         }
       }
 
-      // -------------------- 2. INTERESES --------------------
-      // Base imponible: para urbano se suma el descuento/recargo; para rural y agua no
+      // 2. Intereses
       let baseInteres = totalNominal - sa;
       if (fila.id_modulo === MODULO_CATASTRO_URBANO) {
         baseInteres += descuentoRecargo;
@@ -153,31 +147,16 @@ export class CutService {
         esCatastro
       );
 
-      // -------------------- 3. MORA Y COACTIVA (solo catastro) --------------------
+      // 3. Mora (solo catastro años anteriores)
       let mora = 0;
-      let coactiva = 0;
       if (esCatastro) {
-        // Para mora se necesita el valor del impuesto predial puro y exoneración.
-        // Como base_predial_pura = impuesto + exoneración, asumimos que exoneración = 0 si no está separada.
-        // Si tu SQL separa los valores, ajusta aquí.
-        const valorImpuesto = basePredial;
-        const valorExoneracion = 0;
-        const totalSinMora = totalNominal + descuentoRecargo + interes;
-        const { mora: m, coactiva: c } = await calcularMoraCoactiva(
-          totalSinMora,
-          valorImpuesto,
-          valorExoneracion,
-          fila.id_modulo,
-          anioEmision
-        );
-        mora = m;
-        coactiva = c;
+        mora = await calcularMora(basePredial, anioEmision, fila.id_modulo);
       }
 
-      // -------------------- 4. TOTAL DE LA FACTURA --------------------
-      const totalFactura = totalNominal + descuentoRecargo + interes + mora + coactiva;
+      // 4. Total factura (sin coactiva)
+      const totalFactura = totalNominal + descuentoRecargo + interes + mora;
 
-      // -------------------- 5. PERÍODOS Y AGRUPACIÓN --------------------
+      // 5. Periodo y agrupación
       let periodo: string;
       let refBaseAgua = "";
       if (esCatastro) {
@@ -195,12 +174,8 @@ export class CutService {
         existing.totalNominalAcum += totalNominal;
         existing.totalInteresAcum += interes;
         existing.totalMoraAcum += mora;
-        existing.totalCoactivaAcum += coactiva;
         existing.totalFinal =
-          existing.totalNominalAcum +
-          existing.totalInteresAcum +
-          existing.totalMoraAcum +
-          existing.totalCoactivaAcum;
+          existing.totalNominalAcum + existing.totalInteresAcum + existing.totalMoraAcum;
         existing.periodos.add(periodo);
         if (!esCatastro && refBaseAgua && !existing.refBaseAgua) {
           existing.refBaseAgua = refBaseAgua;
@@ -217,7 +192,6 @@ export class CutService {
           totalNominalAcum: totalNominal,
           totalInteresAcum: interes,
           totalMoraAcum: mora,
-          totalCoactivaAcum: coactiva,
           totalFinal: totalFactura,
           refBaseAgua,
         });
@@ -226,7 +200,6 @@ export class CutService {
 
     console.log(`📦 Grupos consolidados: ${mapa.size}`);
 
-    // 6. Construir registros finales
     const registros: RegistroDeuda[] = [];
     for (const [, grupo] of mapa) {
       const totalRedondeado = Math.round(grupo.totalFinal * 100) / 100;
@@ -262,7 +235,6 @@ export class CutService {
 
     console.log(`💾 Registros a insertar: ${registros.length}`);
 
-    // 7. Insertar en lotes
     if (registros.length > 0) {
       const chunkSize = 5000;
       for (let i = 0; i < registros.length; i += chunkSize) {
@@ -300,6 +272,52 @@ export class CutService {
     };
   }
 
+  // -----------------------------------------------------------------
+  // getActiveCut, generateTxt, generateExcel (sin cambios)
+  // -----------------------------------------------------------------
+  static async getActiveCut(page = 1, limit = 50) {
+    const corte = await prisma.parametrosCorte.findFirst({ where: { estado: "ACTIVO" } });
+    if (!corte) return null;
+
+    const [deudas, total] = await Promise.all([
+      prisma.deudaBanco.findMany({
+        where: { idParametro: corte.id },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { nombreCliente: "asc" },
+      }),
+      prisma.deudaBanco.count({ where: { idParametro: corte.id } }),
+    ]);
+
+    const sumTotal = await prisma.deudaBanco.aggregate({
+      where: { idParametro: corte.id },
+      _sum: { totalDecimal: true },
+    });
+
+    return {
+      corte: {
+        id: corte.id,
+        fechaCorte: corte.fechaCorte,
+        creadoEn: corte.creadoEn,
+        nombreUsuario: corte.nombreUsuario,
+      },
+      deudas,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      resumen: {
+        totalRegistros: total,
+        totalDeuda: sumTotal._sum.totalDecimal ?? 0,
+      },
+    };
+  }
+
+  // -----------------------------------------------------------------
+  // getActiveCut, generateTxt, generateExcel (sin cambios)
+  // -----------------------------------------------------------------
   static async generateTxt(): Promise<string> {
     const corte = await prisma.parametrosCorte.findFirst({
       where: { estado: "ACTIVO" },
@@ -329,6 +347,9 @@ export class CutService {
     return lineas.join("\r\n");
   }
 
+  // -----------------------------------------------------------------
+  // getActiveCut, generateTxt, generateExcel (sin cambios)
+  // -----------------------------------------------------------------
   static async generateExcel(): Promise<Buffer> {
     const corte = await prisma.parametrosCorte.findFirst({
       where: { estado: "ACTIVO" },
@@ -425,45 +446,5 @@ export class CutService {
 
     const buffer = await wb.xlsx.writeBuffer();
     return Buffer.from(buffer);
-  }
-
-  static async getActiveCut(page = 1, limit = 50) {
-    const corte = await prisma.parametrosCorte.findFirst({ where: { estado: "ACTIVO" } });
-    if (!corte) return null;
-
-    const [deudas, total] = await Promise.all([
-      prisma.deudaBanco.findMany({
-        where: { idParametro: corte.id },
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { nombreCliente: "asc" },
-      }),
-      prisma.deudaBanco.count({ where: { idParametro: corte.id } }),
-    ]);
-
-    const sumTotal = await prisma.deudaBanco.aggregate({
-      where: { idParametro: corte.id },
-      _sum: { totalDecimal: true },
-    });
-
-    return {
-      corte: {
-        id: corte.id,
-        fechaCorte: corte.fechaCorte,
-        creadoEn: corte.creadoEn,
-        nombreUsuario: corte.nombreUsuario,
-      },
-      deudas,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-      resumen: {
-        totalRegistros: total,
-        totalDeuda: sumTotal._sum.totalDecimal ?? 0,
-      },
-    };
   }
 }
