@@ -128,15 +128,26 @@ export function calcularInteres(
 // Primer semestre  → descuento negativo escalonado por quincena
 // Segundo semestre → recargo positivo fijo +10%
 // ─────────────────────────────────────────────────────────────
-export function calcularDescuentoRecargoProntoPago(basePredial: number, fechaCorte: Date): number {
+export function calcularDescuentoRecargoProntoPago(
+  basePredial: number,
+  fechaCorte: Date,
+  idModulo: number
+): number {
   if (!basePredial || basePredial === 0) return 0;
 
   const mes = fechaCorte.getMonth(); // 0=Enero … 11=Diciembre
   const dia = fechaCorte.getDate();
+  const esUrbano = idModulo === MODULO_CATASTRO_URBANO;
+  const esRural = idModulo === MODULO_CATASTRO_RURAL;
 
   // Segundo Semestre (Julio a Diciembre): Recargo del 10% fijo
   if (mes >= 6) {
-    return Math.round(basePredial * 0.1 * 100) / 100;
+    if (esUrbano) {
+      // Urbano: recargo fijo 10%
+      return Math.round(basePredial * 0.1 * 100) / 100;
+    }
+    // Rural: sin recargo
+    return 0;
   }
 
   // Primer Semestre: Descuentos quincenales (10% a 1%)

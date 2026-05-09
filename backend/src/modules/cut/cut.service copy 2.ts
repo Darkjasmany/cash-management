@@ -2,6 +2,7 @@ import { env } from "@/config/env";
 import { prisma } from "@/lib/db";
 import {
   calcularDescuentoRecargoProntoPago,
+  calcularInteres,
   getDeudasSiim,
   getInteresesSiim,
   getModuloSiim,
@@ -192,11 +193,7 @@ export class CutService {
 
       const totalNominal = Number(fila.total_nominal) || 0;
       const sa = Number(fila.servicio_administrativo) || 0;
-      const basePredial = Number(fila.base_predial_pura) || 0;
-
-      // 1. Calcular pronto pago (solo para catastro del año actual)
-      let descuentoRecargo = 0;
-      const anioFactura = new Date(fila.fecha_creacion).getFullYear();
+      // const basePredial = Number(fila.base_predial_pura) || 0;
 
       // Ignorar facturas sin valor
       if (totalNominal <= 0) continue;
@@ -204,28 +201,11 @@ export class CutService {
       const esCatastro =
         fila.id_modulo === MODULO_CATASTRO_URBANO || fila.id_modulo === MODULO_CATASTRO_RURAL;
 
-      if (esCatastro && anioFactura === anioCorte) {
-        descuentoRecargo = calcularDescuentoRecargoProntoPago(
-          basePredial,
-          fechaCorte,
-          fila.id_modulo
-        );
-      }
-
       // a) Base imponible del interés, base del interés — total sin SA, nunca negativo
-      // const baseInteres = Math.max(0, totalNominal - sa);
-      // 2. Base del interés
-      let baseInteres = totalNominal - sa;
-      if (esCatastro && fila.id_modulo === MODULO_CATASTRO_URBANO) {
-        // Urbano: se suma el descuento/recargo a la base
-        baseInteres += descuentoRecargo;
-      }
-      // En Rural y Agua no se suma descuento/recargo a la base
-      baseInteres = Math.max(0, baseInteres);
+      const baseInteres = Math.max(0, totalNominal - sa);
 
       // b) Interés con la fecha real de la factura
-      // 3. Interés (sin redondear)
-      const interesExacto = calcularInteresExacto(
+      const interes = calcularInteres(
         baseInteres,
         new Date(fila.fecha_creacion),
         fechaCorte,
@@ -233,31 +213,24 @@ export class CutService {
         intereses,
         esCatastro
       );
-      // TODO
+
       // c) Pronto pago (solo catastro del año actual)
-      // let prontoPago = 0;
-      // if (esCatastro && new Date(fila.fecha_creacion).getFullYear() === anioCorte) {
-      //   prontoPago = calcularDescuentoRecargoProntoPago(basePredial, fechaCorte);
-      // }
+      let prontoPago = 0;
+      if (esCatastro && new Date(fila.fecha_creacion).getFullYear() === anioCorte) {
+        prontoPago = calcularDescuentoRecargoProntoPago(basePredial, fechaCorte);
+      }
 
       // d) Total de esta factura
-      // const totalFactura = totalNominal + interesExacto + prontoPago;
+      const totalFactura = totalNominal + interes + prontoPago;
 
       // TODO Agrega esto después de calcular interes en el loop:
-      // if (esCatastro) {
-      //   console.log(
-      //     `Factura ${fila.id_factura} | base: ${baseInteres} | interes: ${interesExacto} | prontoPago: ${prontoPago}`
-      //   );
-      // }
+      if (esCatastro) {
+        console.log(
+          `Factura ${fila.id_factura} | base: ${baseInteres} | interes: ${interes} | prontoPago: ${prontoPago}`
+        );
+      }
 
-      // FIX 1: SIN pronto pago — el descuento/recargo ya está en total_nominal
-      // total_factura = lo que ya tiene el SIIM en BD (nominal) + interés
-      // const totalFactura = totalNominal + interesExacto;
-
-      // 4. Total de la factura
-      const totalFactura = totalNominal + descuentoRecargo + interesExacto;
-
-      // Período
+      // e) Agrupa
       let periodo: string;
       let refBaseAgua = "";
 
@@ -274,16 +247,13 @@ export class CutService {
       // Para agua: agrupamos por cliente + modulo + contrapartida (id_abonado)
       // NO incluimos la emisión en la clave → todas las emisiones de un
       // mismo abonado se consolidan en una sola línea con sus emisiones listadas
-
       const clave = `${fila.id_cliente}|${fila.id_modulo}|${fila.contrapartida}`;
-      const existing = mapa.get(clave);
 
+      const existing = mapa.get(clave);
       if (existing) {
-        // FIX 2: acumulamos sin redondear
-        existing.totalNominalAcum += totalNominal;
-        existing.totalInteresAcum += interesExacto;
-        existing.totalFinal = existing.totalNominalAcum + existing.totalInteresAcum;
+        existing.totalFinal += totalFactura;
         existing.periodos.add(periodo);
+        // Para agua: actualiza refBase si tiene más datos (por si el 1er registro era vacío)
         if (!esCatastro && refBaseAgua && !existing.refBaseAgua) {
           existing.refBaseAgua = refBaseAgua;
         }
@@ -296,8 +266,6 @@ export class CutService {
           id_modulo: fila.id_modulo,
           contrapartida: fila.contrapartida,
           periodos: new Set([periodo]),
-          totalNominalAcum: totalNominal,
-          totalInteresAcum: interesExacto,
           totalFinal: totalFactura,
           refBaseAgua,
         });
@@ -310,7 +278,6 @@ export class CutService {
     const registros: RegistroDeuda[] = [];
 
     for (const [, grupo] of mapa) {
-      // FIX 2: redondeo una sola vez al final del grupo
       const totalRedondeado = Math.round(grupo.totalFinal * 100) / 100;
       const valorCentavos = Math.round(totalRedondeado * 100);
 
@@ -588,70 +555,4 @@ export class CutService {
     const buffer = await wb.xlsx.writeBuffer();
     return Buffer.from(buffer);
   }
-}
-
-// ─────────────────────────────────────────────────────────────
-// calcularInteresExacto — igual que calcularInteres del siim.service
-// pero retorna el valor SIN redondear para evitar error acumulado
-// cuando se suman muchas facturas (FIX 2).
-// ─────────────────────────────────────────────────────────────
-function calcularInteresExacto(
-  baseImponible: number,
-  fechaCreacion: Date,
-  fechaCorte: Date,
-  modulo: ModuloSiim,
-  intereses: Array<{ ano: number; mes: number; porcentaje: number }>,
-  esCatastro: boolean = false
-): number {
-  if (!baseImponible || baseImponible <= 0) return 0;
-
-  const PERIODICIDAD_MESES: Record<number, number> = {
-    0: 0,
-    1: 0,
-    2: 1,
-    3: 3,
-    4: 6,
-    5: 12,
-  };
-
-  const periodicidad = modulo.periodicidad;
-  if (periodicidad === 0) return 0;
-
-  const mesesPeriodo = PERIODICIDAD_MESES[periodicidad] ?? 1;
-
-  const fechaInicio = new Date(fechaCreacion);
-  fechaInicio.setDate(fechaInicio.getDate() + (modulo.diasAdicionales || 0));
-
-  // const anioFactura = new Date(fechaCreacion).getFullYear();
-  // const anioCorte = fechaCorte.getFullYear();
-  // const subirMeses = !esCatastro || (esCatastro && anioFactura === anioCorte);
-
-  // fechaInicio ya tiene los días adicionales sumados
-  const anioInicio = fechaInicio.getFullYear();
-  const anioCorte = fechaCorte.getFullYear();
-  const subirMeses = !esCatastro || (esCatastro && anioInicio === anioCorte);
-
-  if (subirMeses) {
-    fechaInicio.setMonth(fechaInicio.getMonth() + mesesPeriodo);
-  }
-
-  const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
-  const periodoEmision = toPeriodo(fechaInicio);
-  const periodoActual = toPeriodo(fechaCorte);
-
-  if (periodoActual < periodoEmision) return 0;
-
-  let totalPorcentaje = 0;
-  for (const i of intereses) {
-    const p = i.ano * 100 + i.mes;
-    if (p >= periodoEmision && p <= periodoActual) {
-      totalPorcentaje += i.porcentaje || 0;
-    }
-  }
-
-  if (totalPorcentaje === 0) return 0;
-
-  const totalIntereses = (totalPorcentaje * ((modulo.porcentaje || 0) / 100)) / 100;
-  // ← SIN Math.round — valor exacto para acumular sin error
-  return isNaN(totalIntereses * baseImponible) ? 0 : totalIntereses * baseImponible;
 }
