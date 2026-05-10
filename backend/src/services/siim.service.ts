@@ -143,15 +143,16 @@ export function calcularInteresRedondeado(
 // Primer semestre: descuento escalonado quincenal (negativo)
 // Segundo semestre: recargo fijo +10% (positivo)
 // ─────────────────────────────────────────────────────────────
-export function calcularDescuentoUrbano(basePredial: number, anioEmision: number): number {
-  if (basePredial <= 0) return 0;
+export function calcularDescuentoUrbano(impuestoPredial: number, anioEmision: number): number {
+  if (impuestoPredial <= 0) return 0;
+
   const ahora = new Date();
   if (anioEmision !== ahora.getFullYear()) return 0;
   const mes = ahora.getMonth(); // 0=Enero
   const dia = ahora.getDate();
 
   // Segundo semestre → recargo +10%
-  if (mes >= 6) return Math.round(basePredial * 0.1 * 100) / 100;
+  if (mes >= 6) return Math.round(impuestoPredial * 0.1 * 100) / 100;
 
   // Primer semestre → descuento negativo quincenal
   const tabla: [number, number][] = [
@@ -164,7 +165,7 @@ export function calcularDescuentoUrbano(basePredial: number, anioEmision: number
   ];
   const quincena = dia <= 15 ? 0 : 1;
   const porcentaje = tabla[mes][quincena];
-  return Math.round(basePredial * (porcentaje / 100) * -1 * 100) / 100;
+  return Math.round(impuestoPredial * (porcentaje / 100) * -1 * 100) / 100;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -172,16 +173,15 @@ export function calcularDescuentoUrbano(basePredial: number, anioEmision: number
 // Solo primer semestre → descuento fijo 10% (negativo)
 // Segundo semestre → 0 (no hay recargo en rural)
 // ─────────────────────────────────────────────────────────────
-export function calcularDescuentoRural(basePredial: number, anioEmision: number): number {
-  if (basePredial <= 0) return 0;
+export function calcularDescuentoRural(impuestoPredial: number, anioEmision: number): number {
+  if (impuestoPredial <= 0) return 0;
   const ahora = new Date();
   if (anioEmision !== ahora.getFullYear()) return 0;
   const mes = ahora.getMonth();
-
   // Rural no tiene recargo segundo semestre
   if (mes >= 6) return 0;
   // Descuento fijo 10%
-  return Math.round(basePredial * 0.1 * -1 * 100) / 100;
+  return Math.round(impuestoPredial * 0.1 * -1 * 100) / 100;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -189,16 +189,16 @@ export function calcularDescuentoRural(basePredial: number, anioEmision: number)
 // Se calcula sobre base_predial_pura de facturas anteriores al año actual
 // ─────────────────────────────────────────────────────────────
 export async function calcularMoraRedondeada(
-  baseMora: number,
+  impuestoPredial: number,
   anioEmision: number,
   idModulo: number
 ): Promise<number> {
-  if (baseMora <= 0) return 0;
+  if (impuestoPredial <= 0) return 0;
   if (anioEmision >= new Date().getFullYear()) return 0;
   const rubro = await getRubroMoraByModulo(idModulo);
   if (!rubro) return 0;
   let mora = 0;
-  if (rubro.calculable === 1) mora = baseMora * (rubro.valor / 100);
+  if (rubro.calculable === 1) mora = impuestoPredial * (rubro.valor / 100);
   else mora = rubro.valor;
   return Math.round(mora * 100) / 100;
 }

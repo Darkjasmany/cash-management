@@ -72,13 +72,18 @@ model DeudaBanco {
   nombreCliente String
   idCliente     String
 
-  // Montos por factura (ya calculados y redondeados individualmente)
+  // Montos por factura (calculados y redondeados individualmente)
   montoNominal   Decimal @db.Decimal(10, 2)
   montoInteres   Decimal @default(0) @db.Decimal(10, 2)
   montoMora      Decimal @default(0) @db.Decimal(10, 2)
-  montoDescuento Decimal @default(0) @db.Decimal(10, 2)
-  montoRecargo   Decimal @default(0) @db.Decimal(10, 2)
+  montoDescuento Decimal @default(0) @db.Decimal(10, 2) // siempre negativo
+  montoRecargo   Decimal @default(0) @db.Decimal(10, 2) // siempre positivo
   totalFactura   Decimal @db.Decimal(10, 2)
+
+  // --- NUEVOS CAMPOS: componentes originales del SQL (para auditoría y cálculos futuros) ---
+  impuestoPredial Decimal @default(0) @db.Decimal(10, 2)
+  exoneracion     Decimal @default(0) @db.Decimal(10, 2)
+  cem             Decimal @default(0) @db.Decimal(10, 2)  // solo rural, 0 para urbano/agua
 
   @@map("deuda_banco")
 }

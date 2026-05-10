@@ -10,7 +10,10 @@ export interface FilaSiim {
   total_nominal: number;
   servicio_administrativo: number;
   bomberos: number;
-  base_predial_pura: number;
+  impuesto_predial: number; // nuevo
+  exoneracion: number; // nuevo
+  cem?: number; // opcional, solo rural
+  base_predial_pura: number; // mantenemos por compatibilidad
   contrapartida: string;
   referencia: string;
 }

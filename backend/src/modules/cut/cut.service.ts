@@ -55,6 +55,10 @@ interface FacturaGuardada {
   montoDescuento: number;
   montoRecargo: number;
   totalFactura: number;
+  // Nuevos campos para auditoría
+  impuestoPredial: number;
+  exoneracion: number;
+  cem: number;
 }
 
 // ─── Grupo para archivo TXT/Excel ────────────────────────────
@@ -116,6 +120,7 @@ export class CutService {
     ]);
 
     console.log(`📊 Facturas: ${filasRaw.length} | Intereses: ${intereses.length}`);
+
     if (filasRaw.length === 0) {
       return { idParametro: corte.id, fechaCorte: fechaCorteStr, totalRegistros: 0, totalDeuda: 0 };
     }
@@ -134,20 +139,12 @@ export class CutService {
 
       const totalNominal = Number(fila.total_nominal) || 0;
       const sa = Number(fila.servicio_administrativo) || 0;
-      const basePredial = Number(fila.base_predial_pura) || 0;
+      const impuestoPredial = Number(fila.impuesto_predial) || 0; // ← nueva base
+      const exoneracion = Number(fila.exoneracion) || 0;
+      const cem = Number(fila.cem) || 0;
 
+      // Para agua, impuestoPredial será 0 (no aplica)
       if (totalNominal <= 0) continue;
-
-      // LOG para depurar
-      if (fila.id_cliente === 75036) {
-        console.log("🔎 Fila SQL:", {
-          id_factura: fila.id_factura,
-          total_nominal: fila.total_nominal,
-          sa: fila.servicio_administrativo,
-          base_predial_pura: fila.base_predial_pura,
-          referencia: fila.referencia,
-        });
-      }
 
       const esCatastro =
         fila.id_modulo === MODULO_CATASTRO_URBANO || fila.id_modulo === MODULO_CATASTRO_RURAL;
@@ -155,37 +152,30 @@ export class CutService {
       const anioEmision = fechaCreacion.getFullYear();
       const esAnioActual = anioEmision === anioCorte;
 
-      // ---- 1. Descuento/Recargo (solo catastro año actual) ----
+      /// ---- 1. Descuento/Recargo (solo catastro año actual, usando impuestoPredial) ----
       let descuento = 0;
       let recargo = 0;
       if (esCatastro && esAnioActual) {
         let dr = 0;
         if (fila.id_modulo === MODULO_CATASTRO_URBANO) {
-          dr = calcularDescuentoUrbano(basePredial, anioEmision);
+          dr = calcularDescuentoUrbano(impuestoPredial, anioEmision);
         } else {
-          dr = calcularDescuentoRural(basePredial, anioEmision);
+          dr = calcularDescuentoRural(impuestoPredial, anioEmision);
         }
         if (dr < 0) descuento = dr;
         if (dr > 0) recargo = dr;
-
-        // LOG de depuración para la factura problemática
-        if (DEBUG_CEDULA && fila.cedula.trim() === DEBUG_CEDULA) {
-          console.log(
-            `\n📌 [DESCUENTO] Factura ${fila.id_factura} (${fila.id_modulo === MODULO_CATASTRO_RURAL ? "Rural" : "Urbano"})`
-          );
-          console.log(`   basePredial = ${basePredial}`);
-          console.log(`   dr = ${dr}, descuento = ${descuento}, recargo = ${recargo}`);
-        }
       }
 
-      // ---- 2. Base imponible del interés ----
+      // ---- 2. Base imponible del interés (según Java) ----
+      // base = totalNominal - servicios_administrativos
       let baseInteres = totalNominal - sa;
+      // En urbano, si hay descuento/recargo, se suma a la base (según Java)
       if (fila.id_modulo === MODULO_CATASTRO_URBANO && esAnioActual) {
         baseInteres += descuento + recargo;
       }
       baseInteres = Math.max(0, baseInteres);
 
-      // ---- 3. Interés redondeado por factura ----
+      // ---- 3. Interés redondeado (con logs para depurar) ----
       const interes = calcularInteresRedondeado(
         baseInteres,
         fechaCreacion,
@@ -195,28 +185,30 @@ export class CutService {
         esCatastro
       );
 
-      // ---- 4. Mora (solo años anteriores al actual) ----
+      // ---- 4. Mora (solo años anteriores, usando impuestoPredial) ----
       const mora = esCatastro
-        ? await calcularMoraRedondeada(basePredial, anioEmision, fila.id_modulo)
+        ? await calcularMoraRedondeada(impuestoPredial, anioEmision, fila.id_modulo)
         : 0;
 
-      // ---- 5. Total de la factura (redondeado) ----
+      // ---- 5. Total de la factura ----
       const totalFactura =
         Math.round((totalNominal + descuento + recargo + interes + mora) * 100) / 100;
 
-      // ---- 6. Log completo para depuración ----
+      // ---- 6. Logs de depuración ----
       if (DEBUG_CEDULA && fila.cedula.trim() === DEBUG_CEDULA) {
+        console.log(`\n📌 FACTURA ${fila.id_factura} | mod=${fila.id_modulo} | año=${anioEmision}`);
         console.log(
-          `\n📌 FACTURA COMPLETA ${fila.id_factura} | mod=${fila.id_modulo} | año=${anioEmision}`
+          `   totalNominal=${totalNominal}, sa=${sa}, impuestoPredial=${impuestoPredial}`
         );
-        console.log(`   totalNominal=${totalNominal}, sa=${sa}, basePredial=${basePredial}`);
         console.log(`   baseInteres=${baseInteres}, descuento=${descuento}, recargo=${recargo}`);
         console.log(`   interes=${interes}, mora=${mora}, total=${totalFactura}`);
+        console.log(`   referencia="${fila.referencia}"`);
       }
 
+      // ---- 7. Guardar (incluyendo los nuevos campos) ----
       facturas.push({
-        idFacturaSiim: Number(fila.id_factura), // ← CONVERSIÓN EXPLÍCITA
-        id_modulo: Number(fila.id_modulo), // ← CONVERSIÓN EXPLÍCITA
+        idFacturaSiim: Number(fila.id_factura),
+        id_modulo: Number(fila.id_modulo),
         tipo: "CO",
         contrapartida: fila.contrapartida,
         moneda: "USD",
@@ -232,6 +224,10 @@ export class CutService {
         montoDescuento: descuento,
         montoRecargo: recargo,
         totalFactura: totalFactura,
+        // --- NUEVOS campos ---
+        impuestoPredial: impuestoPredial, // viene de fila.impuesto_predial
+        exoneracion: fila.exoneracion ?? 0,
+        cem: fila.cem ?? 0,
       });
     }
 
@@ -243,8 +239,8 @@ export class CutService {
         await prisma.deudaBanco.createMany({
           data: chunk.map(f => ({
             idParametro: corte.id,
-            idFacturaSiim: Number(f.idFacturaSiim), // ← CONVERSIÓN EXPLÍCITA
-            id_modulo: Number(f.id_modulo), // ← CONVERSIÓN EXPLÍCITA
+            idFacturaSiim: f.idFacturaSiim,
+            id_modulo: f.id_modulo,
             tipo: f.tipo,
             contrapartida: f.contrapartida,
             moneda: f.moneda,
@@ -260,6 +256,10 @@ export class CutService {
             montoDescuento: f.montoDescuento,
             montoRecargo: f.montoRecargo,
             totalFactura: f.totalFactura,
+            // Nuevos campos
+            impuestoPredial: f.impuestoPredial,
+            exoneracion: f.exoneracion,
+            cem: f.cem,
           })),
         });
         console.log(`  ✅ ${Math.min(i + chunkSize, facturas.length)} / ${facturas.length}`);

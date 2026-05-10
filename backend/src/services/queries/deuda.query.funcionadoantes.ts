@@ -23,13 +23,7 @@ SELECT * FROM (
         -- bomberos: rubro id 68 (si existe)
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 68 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS bomberos,
-        -- impuesto_predial (solo el impuesto, sin exoneración)
-        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 66 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS impuesto_predial,
-        -- exoneracion
-        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 65 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS exoneracion,
-        -- base_predial_pura (impuesto + exoneración) se mantiene por si acaso
+        -- base_predial_pura: impuesto predial (66) + exoneración (65)
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro IN (66, 65) 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS base_predial_pura,
         COALESCE((SELECT CONCAT(pro.codigo, can.codigo, par.codigo, BTRIM(zon.codigo), BTRIM(sec.codigo), BTRIM(pol.codigo), BTRIM(pre.predio))
@@ -58,29 +52,21 @@ SELECT * FROM (
         TRIM(c.apellido || ' ' || c.nombre),
         -- exclude intereses rural (142), descuento rural (195), recargo rural (196)
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro NOT IN (142, 195, 196) 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS total_nominal,
+                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
         -- servicio_administrativo rural: rubro id=140
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 140 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS servicio_administrativo,
+                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
         -- bomberos rural: rubro id=138
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 138 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS bomberos,
-        -- impuesto_predial rural
-        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 136 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS impuesto_predial,
-        -- exoneracion rural
-        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 137 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS exoneracion,
-        -- cem (si existe)
-        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 3 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS cem,
+                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
+        -- base_predial_pura rural: impuesto predial rural (136) + exoneración (137)
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro IN (136, 137) 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS base_predial_pura,
+                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
         COALESCE((SELECT CONCAT(pro.codigo, can.codigo, par.codigo, BTRIM(zon.codigo), BTRIM(sec.codigo), BTRIM(pol.codigo), BTRIM(pre.predio))
                   FROM provincia pro, canton can, parroquia par, zona_rural zon, sector_rural sec, poligono_rural pol, predio_rural pre
                   WHERE pre.id = lar.id_predio_rural AND pol.id = pre.id_poligono AND sec.id = pol.id_sector AND zon.id = sec.id_zona 
-                    AND par.id = zon.id_parroquia AND can.id = par.id_canton AND pro.id = can.id_provincia), '') AS contrapartida,
-        'Rural Año: ' || EXTRACT(YEAR FROM f."fechaCreacion") AS referencia
+                    AND par.id = zon.id_parroquia AND can.id = par.id_canton AND pro.id = can.id_provincia), ''),
+        'Rural Año: ' || EXTRACT(YEAR FROM f."fechaCreacion")
     FROM factura f
     JOIN factura_detalle fd ON fd.id_factura = f.id
     JOIN rubro r ON r.id = fd.id_rubro
@@ -96,21 +82,19 @@ SELECT * FROM (
 
     UNION ALL
 
-    -- MÓDULO AGUA (sin cambios)
+    -- MÓDULO AGUA
     SELECT 
         f.id, f.id_modulo, f."fechaCreacion", c.id, TRIM(c.cedula), 
         TRIM(c.apellido || ' ' || c.nombre),
+        -- exclude interés agua (5)
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro NOT IN (5) 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS total_nominal,
+                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
+        -- servicio_administrativo agua: rubro id=7
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 7 
-                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS servicio_administrativo,
-        0.00 AS bomberos,
-        0.00 AS impuesto_predial,
-        0.00 AS exoneracion,
-        0.00 AS cem,
-        0.00 AS base_predial_pura,
-        ab.id::text AS contrapartida,
-        'Agua. Med: ' || COALESCE(ab."nroMedidor", '0') || ' Emisión: ' || ae.emision AS referencia
+                  THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2),
+        0.00, 0.00,
+        ab.id::text,
+        'Agua. Med: ' || COALESCE(ab."nroMedidor", '0') || ' Emisión: ' || ae.emision
     FROM factura f
     JOIN factura_detalle fd ON fd.id_factura = f.id
     JOIN rubro r ON r.id = fd.id_rubro
