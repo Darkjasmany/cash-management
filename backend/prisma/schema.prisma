@@ -73,12 +73,12 @@ model DeudaBanco {
   idCliente     String
 
   // Montos por factura (ya calculados y redondeados individualmente)
-  montoNominal   Decimal @db.Decimal(10, 2) // suma de rubros base (sin intereses ni descuentos)
+  montoNominal   Decimal @db.Decimal(10, 2)
   montoInteres   Decimal @default(0) @db.Decimal(10, 2)
   montoMora      Decimal @default(0) @db.Decimal(10, 2)
-  montoDescuento Decimal @default(0) @db.Decimal(10, 2) // siempre negativo (descuento)
-  montoRecargo   Decimal @default(0) @db.Decimal(10, 2) // siempre positivo (recargo)
-  totalFactura   Decimal @db.Decimal(10, 2) // suma de los anteriores (redondeado)
+  montoDescuento Decimal @default(0) @db.Decimal(10, 2)
+  montoRecargo   Decimal @default(0) @db.Decimal(10, 2)
+  totalFactura   Decimal @db.Decimal(10, 2)
 
   @@map("deuda_banco")
 }

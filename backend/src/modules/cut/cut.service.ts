@@ -17,8 +17,7 @@ const MODULO_CATASTRO_RURAL = parseInt(env?.MODULO_CATASTRO_RURAL ?? "2");
 const MODULO_AGUA_POTABLE = parseInt(env?.MODULO_AGUA_POTABLE ?? "3");
 
 // ─── Cédula para debug (vacía = desactivado) ─────────────────
-// Cambia aquí la cédula problemática para ver logs detallados
-const DEBUG_CEDULA = "0920420353"; // ← cédula de ABRIL CUJI ROSA ITALIA
+const DEBUG_CEDULA = "0701581357"; // cédula de ALVARADO PROCEL NARCISA MACLOVIA
 
 function getTipoId(cedula: string): string {
   const len = cedula.trim().length;
@@ -58,7 +57,7 @@ interface FacturaGuardada {
   totalFactura: number;
 }
 
-// ─── Grupo para archivo TXT/Excel (agrupado por cliente+módulo+contrapartida) ───
+// ─── Grupo para archivo TXT/Excel ────────────────────────────
 interface GrupoArchivo {
   contrapartida: string;
   tipoId: string;
@@ -68,8 +67,8 @@ interface GrupoArchivo {
   id_modulo: number;
   periodos: Set<string>;
   refBaseAgua: string;
-  totalExacto: number; // suma exacta de totalFactura de cada factura
-  totalDecimal: number; // redondeado final
+  totalExacto: number;
+  totalDecimal: number;
   totalCentavos: number;
 }
 
@@ -86,6 +85,7 @@ export class CutService {
     const anioCorte = fechaCorte.getFullYear();
 
     console.log(`\n🔄 Corte: ${fechaCorteStr} | ${nombreUsuario}`);
+    console.log(`   Fecha actual del servidor: ${new Date().toISOString()}`);
     if (DEBUG_CEDULA) console.log(`🔍 Debug cédula: ${DEBUG_CEDULA}`);
 
     // 1. Desactivar corte anterior
@@ -100,7 +100,7 @@ export class CutService {
     });
     console.log(`✅ Corte #${corte.id} creado`);
 
-    // 3. Limpiar deudas de cortes INACTIVOS (CASCADE)
+    // 3. Limpiar deudas de cortes INACTIVOS
     await prisma.deudaBanco.deleteMany({
       where: { parametro: { estado: "INACTIVO" } },
     });
@@ -138,6 +138,17 @@ export class CutService {
 
       if (totalNominal <= 0) continue;
 
+      // LOG para depurar
+      if (fila.id_cliente === 75036) {
+        console.log("🔎 Fila SQL:", {
+          id_factura: fila.id_factura,
+          total_nominal: fila.total_nominal,
+          sa: fila.servicio_administrativo,
+          base_predial_pura: fila.base_predial_pura,
+          referencia: fila.referencia,
+        });
+      }
+
       const esCatastro =
         fila.id_modulo === MODULO_CATASTRO_URBANO || fila.id_modulo === MODULO_CATASTRO_RURAL;
       const fechaCreacion = new Date(fila.fecha_creacion);
@@ -156,11 +167,19 @@ export class CutService {
         }
         if (dr < 0) descuento = dr;
         if (dr > 0) recargo = dr;
+
+        // LOG de depuración para la factura problemática
+        if (DEBUG_CEDULA && fila.cedula.trim() === DEBUG_CEDULA) {
+          console.log(
+            `\n📌 [DESCUENTO] Factura ${fila.id_factura} (${fila.id_modulo === MODULO_CATASTRO_RURAL ? "Rural" : "Urbano"})`
+          );
+          console.log(`   basePredial = ${basePredial}`);
+          console.log(`   dr = ${dr}, descuento = ${descuento}, recargo = ${recargo}`);
+        }
       }
 
       // ---- 2. Base imponible del interés ----
       let baseInteres = totalNominal - sa;
-      // Urbano: el descuento/recargo afecta la base (según Java)
       if (fila.id_modulo === MODULO_CATASTRO_URBANO && esAnioActual) {
         baseInteres += descuento + recargo;
       }
@@ -185,26 +204,24 @@ export class CutService {
       const totalFactura =
         Math.round((totalNominal + descuento + recargo + interes + mora) * 100) / 100;
 
-      // ---- 6. Referencia individual (se guarda tal cual viene del query) ----
-      let refFactura = fila.referencia;
-
-      // ---- 7. Debug ----
+      // ---- 6. Log completo para depuración ----
       if (DEBUG_CEDULA && fila.cedula.trim() === DEBUG_CEDULA) {
-        console.log(`\n📌 Factura ${fila.id_factura} | mod=${fila.id_modulo} | año=${anioEmision}`);
-        console.log(`   totalNominal=${totalNominal} sa=${sa} basePredial=${basePredial}`);
-        console.log(`   baseInteres=${baseInteres} descuento=${descuento} recargo=${recargo}`);
-        console.log(`   interes=${interes} mora=${mora} total=${totalFactura}`);
-        console.log(`   referencia="${refFactura}"`);
+        console.log(
+          `\n📌 FACTURA COMPLETA ${fila.id_factura} | mod=${fila.id_modulo} | año=${anioEmision}`
+        );
+        console.log(`   totalNominal=${totalNominal}, sa=${sa}, basePredial=${basePredial}`);
+        console.log(`   baseInteres=${baseInteres}, descuento=${descuento}, recargo=${recargo}`);
+        console.log(`   interes=${interes}, mora=${mora}, total=${totalFactura}`);
       }
 
       facturas.push({
-        idFacturaSiim: fila.id_factura,
-        id_modulo: fila.id_modulo,
+        idFacturaSiim: Number(fila.id_factura), // ← CONVERSIÓN EXPLÍCITA
+        id_modulo: Number(fila.id_modulo), // ← CONVERSIÓN EXPLÍCITA
         tipo: "CO",
         contrapartida: fila.contrapartida,
         moneda: "USD",
         formaCobro: "REC",
-        referencia: refFactura,
+        referencia: fila.referencia,
         tipoId: getTipoId(fila.cedula),
         numeroId: fila.cedula,
         nombreCliente: fila.nombre_cliente,
@@ -226,8 +243,8 @@ export class CutService {
         await prisma.deudaBanco.createMany({
           data: chunk.map(f => ({
             idParametro: corte.id,
-            idFacturaSiim: f.idFacturaSiim,
-            id_modulo: f.id_modulo,
+            idFacturaSiim: Number(f.idFacturaSiim), // ← CONVERSIÓN EXPLÍCITA
+            id_modulo: Number(f.id_modulo), // ← CONVERSIÓN EXPLÍCITA
             tipo: f.tipo,
             contrapartida: f.contrapartida,
             moneda: f.moneda,
@@ -263,7 +280,7 @@ export class CutService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // GET CORTE ACTIVO (listado paginado de facturas individuales)
+  // GET CORTE ACTIVO (facturas individuales paginadas)
   // ─────────────────────────────────────────────────────────────
   static async getActiveCut(page = 1, limit = 50) {
     const corte = await prisma.parametrosCorte.findFirst({ where: { estado: "ACTIVO" } });
@@ -301,7 +318,7 @@ export class CutService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // AGRUPAR para archivos TXT/Excel (una línea por grupo)
+  // AGRUPAR para TXT/Excel
   // ─────────────────────────────────────────────────────────────
   private static async agruparParaArchivo(idParametro: number): Promise<GrupoArchivo[]> {
     const filas = await prisma.deudaBanco.findMany({
@@ -318,7 +335,6 @@ export class CutService {
       let refBaseAgua = "";
 
       if (esCatastro) {
-        // Extraer año de la referencia "Rural Año: 2022"
         const match = f.referencia.match(/(\d{4})$/);
         periodo = match ? match[1] : "";
       } else {
@@ -372,15 +388,13 @@ export class CutService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // GENERAR TXT (formato banco, agrupado)
+  // GENERAR TXT
   // ─────────────────────────────────────────────────────────────
   static async generateTxt(): Promise<string> {
     const corte = await prisma.parametrosCorte.findFirst({ where: { estado: "ACTIVO" } });
     if (!corte) throw new Error("No hay corte activo.");
-
     const grupos = await CutService.agruparParaArchivo(corte.id);
     if (grupos.length === 0) throw new Error("No hay datos en el corte activo.");
-
     const lineas = grupos.map(g =>
       [
         "CO",
@@ -400,7 +414,7 @@ export class CutService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // GENERAR EXCEL (dos hojas: consolidado + detalle)
+  // GENERAR EXCEL
   // ─────────────────────────────────────────────────────────────
   static async generateExcel(): Promise<Buffer> {
     const corte = await prisma.parametrosCorte.findFirst({
@@ -410,26 +424,20 @@ export class CutService {
     if (!corte || corte.deudas.length === 0) throw new Error("No hay datos en el corte activo.");
 
     const grupos = await CutService.agruparParaArchivo(corte.id);
-
     const wb = new ExcelJS.Workbook();
     wb.creator = "Cash Management - GAD Naranjal";
     wb.created = new Date();
-
     const encabezado = `Corte: ${corte.fechaCorte.toISOString().split("T")[0]}  |  ${corte.nombreUsuario}  |  ${new Date().toLocaleString("es-EC")}`;
     const usd = '"$"#,##0.00';
 
-    // ---------- Hoja 1: Consolidado (formato banco) ----------
     const ws1 = wb.addWorksheet("Consolidado Banco", {
       pageSetup: { paperSize: 9, orientation: "landscape" },
     });
-
     ws1.mergeCells("A1:J1");
     ws1.getCell("A1").value = `REPORTE CONSOLIDADO — ${encabezado}`;
     ws1.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A5F" } };
     ws1.getCell("A1").font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-    ws1.getCell("A1").alignment = { horizontal: "center" };
     ws1.getRow(1).height = 26;
-
     ws1.columns = [
       { header: "TIPO", key: "tipo", width: 8 },
       { header: "CONTRAPARTIDA", key: "contrapartida", width: 22 },
@@ -444,7 +452,6 @@ export class CutService {
       { header: "NUMERO ID", key: "numeroId", width: 15 },
       { header: "NOMBRE CLIENTE", key: "nombre", width: 38 },
     ];
-
     const h1 = ws1.getRow(2);
     h1.eachCell(c => {
       c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
@@ -452,7 +459,6 @@ export class CutService {
       c.alignment = { horizontal: "center" };
     });
     h1.height = 20;
-
     grupos.forEach((g, idx) => {
       const row = ws1.addRow({
         tipo: "CO",
@@ -469,14 +475,13 @@ export class CutService {
         nombre: g.nombreCliente,
       });
       if (idx % 2 === 0)
-        row.eachCell(c => {
-          c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F7FF" } };
+        row.eachCell(cell => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F7FF" } };
         });
       row.getCell("totalUsd").numFmt = usd;
       row.getCell("valor").alignment = { horizontal: "right" };
       row.height = 18;
     });
-
     const t1 = ws1.addRow({
       tipo: "TOTAL",
       contrapartida: `${grupos.length} registros`,
@@ -487,22 +492,17 @@ export class CutService {
       c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDBEAFE" } };
     });
     t1.getCell("totalUsd").numFmt = usd;
-
     ws1.autoFilter = { from: "A2", to: "L2" };
     ws1.views = [{ state: "frozen", ySplit: 2 }];
 
-    // ---------- Hoja 2: Detalle por factura ----------
     const ws2 = wb.addWorksheet("Detalle por Factura", {
       pageSetup: { paperSize: 9, orientation: "landscape" },
     });
-
     ws2.mergeCells("A1:M1");
     ws2.getCell("A1").value = `DETALLE POR FACTURA — ${encabezado}`;
     ws2.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A5F" } };
     ws2.getCell("A1").font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-    ws2.getCell("A1").alignment = { horizontal: "center" };
     ws2.getRow(1).height = 26;
-
     ws2.columns = [
       { header: "ID FACTURA", key: "idF", width: 12 },
       { header: "MÓDULO", key: "mod", width: 10 },
@@ -518,7 +518,6 @@ export class CutService {
       { header: "REFERENCIA", key: "ref", width: 40 },
       { header: "TIPO ID", key: "tipoId", width: 8 },
     ];
-
     const h2 = ws2.getRow(2);
     h2.eachCell(c => {
       c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
@@ -526,7 +525,6 @@ export class CutService {
       c.alignment = { horizontal: "center" };
     });
     h2.height = 20;
-
     corte.deudas.forEach((d, idx) => {
       const row = ws2.addRow({
         idF: d.idFacturaSiim,
@@ -534,29 +532,27 @@ export class CutService {
         cp: d.contrapartida,
         nombre: d.nombreCliente,
         cedula: d.numeroId,
-        nominal: parseFloat((d as any).montoNominal?.toString() ?? "0"),
-        interes: parseFloat((d as any).montoInteres?.toString() ?? "0"),
-        mora: parseFloat((d as any).montoMora?.toString() ?? "0"),
-        desc: parseFloat((d as any).montoDescuento?.toString() ?? "0"),
-        rec: parseFloat((d as any).montoRecargo?.toString() ?? "0"),
-        total: parseFloat((d as any).totalFactura?.toString() ?? "0"),
+        nominal: parseFloat(d.montoNominal.toString()),
+        interes: parseFloat(d.montoInteres.toString()),
+        mora: parseFloat(d.montoMora.toString()),
+        desc: parseFloat(d.montoDescuento.toString()),
+        rec: parseFloat(d.montoRecargo.toString()),
+        total: parseFloat(d.totalFactura.toString()),
         ref: d.referencia,
         tipoId: d.tipoId,
       });
       if (idx % 2 === 0)
-        row.eachCell(c => {
-          c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F7FF" } };
+        row.eachCell(cell => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F7FF" } };
         });
-      ["nominal", "interes", "mora", "desc", "rec", "total"].forEach(k => {
-        row.getCell(k).numFmt = usd;
-      });
+      ["nominal", "interes", "mora", "desc", "rec", "total"].forEach(
+        k => (row.getCell(k).numFmt = usd)
+      );
       row.height = 18;
     });
-
     ws2.autoFilter = { from: "A2", to: "M2" };
     ws2.views = [{ state: "frozen", ySplit: 2 }];
 
-    const buffer = await wb.xlsx.writeBuffer();
-    return Buffer.from(buffer);
+    return Buffer.from(await wb.xlsx.writeBuffer());
   }
 }

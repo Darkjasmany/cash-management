@@ -70,65 +70,6 @@ export async function getRubroMoraByModulo(idModulo: number): Promise<RubroSiim 
 //   Facturas de años anteriores en catastro: NO suma meses
 //   → el interés empieza desde la fechaCreacion directamente
 // ─────────────────────────────────────────────────────────────
-export function calcularInteres(
-  baseImponible: number,
-  fechaCreacion: Date,
-  fechaCorte: Date,
-  modulo: ModuloSiim,
-  intereses: InteresisSiim[],
-  esCatastro: boolean = false
-): number {
-  if (!baseImponible || baseImponible <= 0) return 0;
-
-  const PERIODICIDAD_MESES: Record<number, number> = {
-    0: 0,
-    1: 0,
-    2: 1,
-    3: 3,
-    4: 6,
-    5: 12,
-  };
-
-  const periodicidad = modulo.periodicidad;
-  if (periodicidad === 0) return 0;
-
-  const mesesPeriodo = PERIODICIDAD_MESES[periodicidad] ?? 1;
-
-  const fechaInicio = new Date(fechaCreacion);
-  fechaInicio.setDate(fechaInicio.getDate() + (modulo.diasAdicionales || 0));
-
-  const anioFactura = fechaCreacion.getFullYear();
-  const anioCorte = fechaCorte.getFullYear();
-
-  // Regla Java: catastro suma meses solo si la factura es del año del corte
-  const subirMeses = !esCatastro || (esCatastro && anioFactura === anioCorte);
-  if (subirMeses) {
-    fechaInicio.setMonth(fechaInicio.getMonth() + mesesPeriodo);
-  }
-
-  const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
-  const periodoEmision = toPeriodo(fechaInicio);
-  const periodoActual = toPeriodo(fechaCorte);
-
-  if (periodoActual < periodoEmision) return 0;
-
-  let totalPorcentaje = 0;
-  for (const i of intereses) {
-    const p = i.ano * 100 + i.mes;
-    if (p >= periodoEmision && p <= periodoActual) {
-      totalPorcentaje += i.porcentaje || 0;
-    }
-  }
-
-  if (totalPorcentaje === 0) return 0;
-
-  // Fórmula Java: totalIntereses = (suma * (porcentaje/100)) / 100
-  const totalIntereses = (totalPorcentaje * ((modulo.porcentaje || 0) / 100)) / 100;
-  const valorInteres = totalIntereses * baseImponible;
-
-  // SIN Math.round — valor exacto para acumular sin error de redondeo
-  return isNaN(valorInteres) ? 0 : valorInteres;
-}
 
 export function calcularInteresExacto(
   baseImponible: number,
@@ -157,32 +98,23 @@ export function calcularInteresExacto(
 
   const anioFactura = fechaCreacion.getFullYear();
   const anioCorte = fechaCorte.getFullYear();
-
-  // Regla Java: catastro suma meses solo si la factura es del año del corte
   const subirMeses = !esCatastro || (esCatastro && anioFactura === anioCorte);
-  if (subirMeses) {
-    fechaInicio.setMonth(fechaInicio.getMonth() + mesesPeriodo);
-  }
+  if (subirMeses) fechaInicio.setMonth(fechaInicio.getMonth() + mesesPeriodo);
 
   const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
   const periodoEmision = toPeriodo(fechaInicio);
   const periodoActual = toPeriodo(fechaCorte);
-
   if (periodoActual < periodoEmision) return 0;
 
   let totalPorcentaje = 0;
   for (const i of intereses) {
     const p = i.ano * 100 + i.mes;
-    if (p >= periodoEmision && p <= periodoActual) {
-      totalPorcentaje += i.porcentaje || 0;
-    }
+    if (p >= periodoEmision && p <= periodoActual) totalPorcentaje += i.porcentaje || 0;
   }
   if (totalPorcentaje === 0) return 0;
 
-  // Fórmula Java: totalIntereses = (totalPorcentaje * (modulo.porcentaje/100)) / 100
   const totalIntereses = (totalPorcentaje * ((modulo.porcentaje || 0) / 100)) / 100;
-  const valorInteres = totalIntereses * baseImponible;
-  return isNaN(valorInteres) ? 0 : valorInteres;
+  return totalIntereses * baseImponible;
 }
 
 // Interés redondeado a 2 decimales (por factura)
@@ -194,7 +126,7 @@ export function calcularInteresRedondeado(
   intereses: InteresisSiim[],
   esCatastro: boolean = false
 ): number {
-  const exact = calcularInteresExacto(
+  const exacto = calcularInteresExacto(
     baseImponible,
     fechaCreacion,
     fechaCorte,
@@ -202,7 +134,7 @@ export function calcularInteresRedondeado(
     intereses,
     esCatastro
   );
-  return Math.round(exact * 100) / 100;
+  return Math.round(exacto * 100) / 100;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -211,30 +143,16 @@ export function calcularInteresRedondeado(
 // Primer semestre: descuento escalonado quincenal (negativo)
 // Segundo semestre: recargo fijo +10% (positivo)
 // ─────────────────────────────────────────────────────────────
-export function calcularDescuentoUrbano(
-  basePredial: number,
-  anioEmision: number
-  // fechaCorte: Date
-): number {
-  // if (basePredial <= 0) return 0;
-  // if (anioEmision !== fechaCorte.getFullYear()) return 0;
-
+export function calcularDescuentoUrbano(basePredial: number, anioEmision: number): number {
   if (basePredial <= 0) return 0;
   const ahora = new Date();
-  const anioActual = ahora.getFullYear();
-  if (anioEmision !== anioActual) return 0;
-
-  // const mes = fechaCorte.getMonth(); // 0=Enero
-  // const dia = fechaCorte.getDate();
+  if (anioEmision !== ahora.getFullYear()) return 0;
   const mes = ahora.getMonth(); // 0=Enero
   const dia = ahora.getDate();
 
-  if (mes >= 6) {
-    // Segundo semestre → recargo +10%
-    return Math.round(basePredial * 0.1 * 100) / 100;
-  }
+  // Segundo semestre → recargo +10%
+  if (mes >= 6) return Math.round(basePredial * 0.1 * 100) / 100;
 
-  // Primer semestre → descuento negativo quincenal
   // Primer semestre → descuento negativo quincenal
   const tabla: [number, number][] = [
     [10, 9],
@@ -254,23 +172,14 @@ export function calcularDescuentoUrbano(
 // Solo primer semestre → descuento fijo 10% (negativo)
 // Segundo semestre → 0 (no hay recargo en rural)
 // ─────────────────────────────────────────────────────────────
-export function calcularDescuentoRural(
-  basePredial: number,
-  anioEmision: number
-  // fechaCorte: Date
-): number {
-  // if (basePredial <= 0) return 0;
-  // if (anioEmision !== fechaCorte.getFullYear()) return 0;
-
-  // const mes = fechaCorte.getMonth();
-  // if (mes >= 6) return 0; // Rural no tiene recargo segundo semestre
+export function calcularDescuentoRural(basePredial: number, anioEmision: number): number {
   if (basePredial <= 0) return 0;
   const ahora = new Date();
-  const anioActual = ahora.getFullYear();
-  if (anioEmision !== anioActual) return 0;
-
+  if (anioEmision !== ahora.getFullYear()) return 0;
   const mes = ahora.getMonth();
-  if (mes >= 6) return 0; // Rural no tiene recargo
+
+  // Rural no tiene recargo segundo semestre
+  if (mes >= 6) return 0;
   // Descuento fijo 10%
   return Math.round(basePredial * 0.1 * -1 * 100) / 100;
 }
@@ -283,24 +192,14 @@ export async function calcularMoraRedondeada(
   baseMora: number,
   anioEmision: number,
   idModulo: number
-  // fechaCorte: Date
 ): Promise<number> {
-  // if (baseMora <= 0) return 0;
-  // if (anioEmision >= fechaCorte.getFullYear()) return 0; // Solo años anteriores
-
   if (baseMora <= 0) return 0;
-  const anioActual = new Date().getFullYear();
-  if (anioEmision >= anioActual) return 0;
-
+  if (anioEmision >= new Date().getFullYear()) return 0;
   const rubro = await getRubroMoraByModulo(idModulo);
   if (!rubro) return 0;
-
   let mora = 0;
-  if (rubro.calculable === 1) {
-    mora = baseMora * (rubro.valor / 100);
-  } else {
-    mora = rubro.valor;
-  }
+  if (rubro.calculable === 1) mora = baseMora * (rubro.valor / 100);
+  else mora = rubro.valor;
   return Math.round(mora * 100) / 100;
 }
 
