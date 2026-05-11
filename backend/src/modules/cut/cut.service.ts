@@ -4,7 +4,7 @@ import {
   calcularDescuentoRural,
   calcularDescuentoUrbano,
   calcularInteresRedondeado,
-  calcularMoraRedondeada,
+  calcularMora,
   getDeudasSiim,
   getInteresesSiim,
   getModuloSiim,
@@ -15,14 +15,6 @@ import ExcelJS from "exceljs";
 const MODULO_CATASTRO_URBANO = parseInt(env?.MODULO_CATASTRO_URBANO ?? "1");
 const MODULO_CATASTRO_RURAL = parseInt(env?.MODULO_CATASTRO_RURAL ?? "2");
 const MODULO_AGUA_POTABLE = parseInt(env?.MODULO_AGUA_POTABLE ?? "3");
-
-// ─── Cédula para debug (vacía = desactivado) ─────────────────
-// const DEBUG_CEDULA = ""; // cédula de ALVARADO PROCEL NARCISA MACLOVIA
-const DEBUG_CEDULAS = new Set([
-  "0915994214", // ABAD CORREA ARTURO
-  "0701581357", // ALVARADO PROCEL NARCISA
-  // "0123456789", // agrega más si quieres
-]);
 
 function getTipoId(cedula: string): string {
   const len = cedula.trim().length;
@@ -161,7 +153,7 @@ export class CutService {
       let recargo = 0;
       if (esCatastro && esAnioActual) {
         let dr = 0;
-        if (fila.id_modulo === MODULO_CATASTRO_URBANO) {
+        if (Number(fila.id_modulo) === MODULO_CATASTRO_URBANO) {
           dr = calcularDescuentoUrbano(impuestoPredial, anioEmision);
         } else {
           dr = calcularDescuentoRural(impuestoPredial, anioEmision);
@@ -173,7 +165,7 @@ export class CutService {
       // ---- 2. Base imponible del interés (según Java) ----
       // base = totalNominal - servicios_administrativos
       let baseInteres = totalNominal - sa;
-      if (fila.id_modulo === MODULO_CATASTRO_URBANO && esAnioActual) {
+      if (Number(fila.id_modulo) === MODULO_CATASTRO_URBANO && esAnioActual) {
         baseInteres += descuento + recargo; // solo urbano
       }
       baseInteres = Math.max(0, baseInteres);
@@ -190,76 +182,17 @@ export class CutService {
       );
 
       // ---- 4. Mora (solo años anteriores, usando impuestoPredial) ----
-      const anioEmision1 = new Date(fila.fecha_creacion).getFullYear();
-      const anioCorte1 = fechaCorte.getFullYear();
-
-      // 1. Log de diagnóstico para entender por qué sale 0
-      if (fila.id_modulo === MODULO_CATASTRO_URBANO || fila.id_modulo === MODULO_CATASTRO_RURAL) {
-        if (anioEmision1 < anioCorte1) {
-          console.log(
-            `[ANALISIS MORA] Factura: ${fila.id_factura} | Cliente: ${fila.nombre_cliente}`
-          );
-          console.log(`   -> Impuesto Predial Base: ${fila.impuesto_predial}`);
-          console.log(`   -> Año Emisión: ${anioEmision1} vs Año Corte: ${anioCorte1}`);
-
-          if (Number(fila.impuesto_predial) <= 0) {
-            console.warn("   ⚠️ MORA SERÁ 0 porque el impuesto_predial llegó en 0 desde el SQL.");
-          }
-        }
-      }
-
-      console.log(fila.impuesto_predial);
-      console.log(typeof fila.impuesto_predial);
-      console.log(impuestoPredial);
-      console.log(typeof impuestoPredial);
-
-      console.log(esCatastro);
-      console.log(typeof esCatastro);
-
-      console.log(anioEmision);
-      console.log(typeof anioEmision);
-
-      console.log(fila.id_modulo);
-      console.log(typeof fila.id_modulo);
-
       let mora = 0;
       if (esCatastro && anioEmision < anioCorte) {
-        mora = calcularMoraRedondeada(impuestoPredial, anioEmision, Number(fila.id_modulo));
+        mora = calcularMora(impuestoPredial, anioEmision, Number(fila.id_modulo));
         // mora = calcularMora(impuestoPredial, anioEmision, fechaCorte);
       }
-      console.log(mora);
-      console.log(typeof mora);
-      // TODO ---- 4. Mora (solo años anteriores, usando impuestoPredial) ----
-      // ---- 4. Mora (solo años anteriores, usando impuestoPredial) ----
-      // let mora = 0;
-      // if (esCatastro && anioEmision < anioCorte) {
-      //   mora = calcularMoraSimple(impuestoPredial, anioEmision);
-      // }
 
       // ---- 5. Total de la factura ----
       const totalFactura =
         Math.round((totalNominal + descuento + recargo + interes + mora) * 100) / 100;
 
-      // ---- 6. Logs de depuración ----
-      if (DEBUG_CEDULAS.has(fila.cedula.trim())) {
-        console.log(
-          `\n📌 [${fila.cedula}] Factura ${fila.id_factura} | módulo=${fila.id_modulo} | año=${anioEmision}`
-        );
-        console.log(`   total_nominal    = ${totalNominal}`);
-        console.log(`   sa               = ${sa}`);
-        console.log(`   impuestoPredial  = ${impuestoPredial}`);
-        console.log(`   exoneracion      = ${exoneracion}`);
-        console.log(`   baseInteres      = ${baseInteres}`);
-        console.log(`   descuento        = ${descuento}`);
-        console.log(`   recargo          = ${recargo}`);
-        console.log(`   interes          = ${interes}`);
-        console.log(
-          `   mora             = ${mora}  (${anioEmision < anioCorte ? "aplica" : "NO aplica - año actual"})`
-        );
-        console.log(`   totalFactura     = ${totalFactura}`);
-      }
-
-      // ---- 7. Guardar (incluyendo los nuevos campos) ----
+      // ---- 6. Guardar (incluyendo los nuevos campos) ----
       facturas.push({
         idFacturaSiim: Number(fila.id_factura),
         id_modulo: Number(fila.id_modulo),

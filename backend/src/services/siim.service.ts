@@ -191,38 +191,8 @@ export function calcularDescuentoRural(impuestoPredial: number, anioEmision: num
 // Rural:  10% del impuesto predial
 // Solo aplica para facturas de años ANTERIORES al año del corte
 // ─────────────────────────────────────────────────────────────
+
 export function calcularMora(
-  impuestoPredial: number,
-  anioEmision: number,
-  fechaCorte: Date
-): number {
-  const base = Number(impuestoPredial);
-  if (base <= 0) return 0;
-
-  const anioCorte = fechaCorte.getFullYear();
-
-  // if (anioEmision >= anioCorte) return 0; // solo años anteriores
-  // return Math.round(impuestoPredial * 0.1 * 100) / 100;
-
-  // Si la factura es de años anteriores (ej: factura 2025 y corte 2026)
-  if (anioEmision < anioCorte) {
-    // 10% de recargo por mora
-    return Math.round(base * 0.1 * 100) / 100;
-  }
-
-  return 0;
-}
-
-export function calcularMoraSimple(impuestoPredial: number, anioEmision: number): number {
-  if (impuestoPredial <= 0) return 0;
-  const anioActual = new Date().getFullYear();
-  if (anioEmision >= anioActual) return 0;
-  // Porcentaje fijo: 10% (ajusta si tu municipio usa otro valor, ej. 0.05 para 5%)
-  const mora = impuestoPredial * 0.1;
-  return Math.round(mora * 100) / 100;
-}
-
-export function calcularMoraRedondeada(
   impuestoPredial: number,
   anioEmision: number,
   idModulo: number
@@ -234,15 +204,13 @@ export function calcularMoraRedondeada(
   const anioFactura = Number(anioEmision);
   const anioActual = new Date().getFullYear();
 
-  // En Naranjal, la mora aplica solo si el año de emisión es menor al actual
+  // La mora aplica solo si el año de emisión es menor al actual
   if (anioFactura >= anioActual) return 0;
 
   // Forzamos conversión a número en la comparación para evitar fallos de tipos (string vs number)
   const id = Number(idModulo);
-  const URBANO = Number(MODULO_CATASTRO_URBANO);
-  const RURAL = Number(MODULO_CATASTRO_RURAL);
 
-  if (id === URBANO || id === RURAL) {
+  if (id === MODULO_CATASTRO_URBANO || id === MODULO_CATASTRO_RURAL) {
     const mora = base * 0.1; // 10% de recargo legal
     return Math.round(mora * 100) / 100;
   }

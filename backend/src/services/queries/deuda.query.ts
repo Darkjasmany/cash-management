@@ -132,7 +132,7 @@ SELECT * FROM (
     GROUP BY f.id, c.id, ab.id, ae.emision
 ) AS facturas
 ORDER BY nombre_cliente, fecha_creacion ASC
-LIMIT 20
+
 ;
   `;
 };
