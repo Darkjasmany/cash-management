@@ -131,6 +131,8 @@ SELECT * FROM (
       AND NOT EXISTS (SELECT 1 FROM bloqueo_agua ba WHERE ba.id_abonado = ab.id)
     GROUP BY f.id, c.id, ab.id, ae.emision
 ) AS facturas
-ORDER BY nombre_cliente, fecha_creacion ASC;
+ORDER BY nombre_cliente, fecha_creacion ASC
+LIMIT 20
+;
   `;
 };

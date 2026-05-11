@@ -1,6 +1,6 @@
 import { env } from "@/config/env";
 import { siimPool } from "@/lib/db";
-import type { FilaSiim, InteresisSiim, ModuloSiim, RubroSiim } from "@/types";
+import type { FilaSiim, InteresisSiim, ModuloSiim } from "@/types";
 import { GET_DEUDAS_SIIM_SQL } from "./queries/deuda.query";
 
 const MODULO_CATASTRO_URBANO = parseInt(env?.MODULO_CATASTRO_URBANO ?? "1");
@@ -36,23 +36,6 @@ export async function getModuloSiim(idModulo: number): Promise<ModuloSiim | null
     return res.rows[0] || null;
   } catch (error) {
     console.error("Error al obtener módulo:", error);
-    return null;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Rubro de mora: 302 = urbano, 303 = rural
-// ─────────────────────────────────────────────────────────────
-export async function getRubroMoraByModulo(idModulo: number): Promise<RubroSiim | null> {
-  const rubroId = idModulo === MODULO_CATASTRO_URBANO ? 302 : 303;
-  try {
-    const res = await siimPool.query<RubroSiim>(
-      `SELECT id, calculable, valor, descripcion FROM rubro WHERE id = $1`,
-      [rubroId]
-    );
-    return res.rows[0] || null;
-  } catch (error) {
-    console.error(`Error al obtener rubro mora ${rubroId}:`, error);
     return null;
   }
 }
@@ -204,22 +187,68 @@ export function calcularDescuentoRural(impuestoPredial: number, anioEmision: num
 // ─────────────────────────────────────────────────────────────
 // Mora (catastro años anteriores)
 // Se calcula sobre base_predial_pura de facturas anteriores al año actual
+// Urbano: 10% del impuesto predial
+// Rural:  10% del impuesto predial
+// Solo aplica para facturas de años ANTERIORES al año del corte
 // ─────────────────────────────────────────────────────────────
-export async function calcularMoraRedondeada(
+export function calcularMora(
   impuestoPredial: number,
   anioEmision: number,
-  idModulo: number
-): Promise<number> {
+  fechaCorte: Date
+): number {
+  const base = Number(impuestoPredial);
+  if (base <= 0) return 0;
+
+  const anioCorte = fechaCorte.getFullYear();
+
+  // if (anioEmision >= anioCorte) return 0; // solo años anteriores
+  // return Math.round(impuestoPredial * 0.1 * 100) / 100;
+
+  // Si la factura es de años anteriores (ej: factura 2025 y corte 2026)
+  if (anioEmision < anioCorte) {
+    // 10% de recargo por mora
+    return Math.round(base * 0.1 * 100) / 100;
+  }
+
+  return 0;
+}
+
+export function calcularMoraSimple(impuestoPredial: number, anioEmision: number): number {
   if (impuestoPredial <= 0) return 0;
-  if (anioEmision >= new Date().getFullYear()) return 0;
-  const rubro = await getRubroMoraByModulo(idModulo);
-  if (!rubro) return 0;
-  let mora = 0;
-  if (rubro.calculable === 1) mora = impuestoPredial * (rubro.valor / 100);
-  else mora = rubro.valor;
+  const anioActual = new Date().getFullYear();
+  if (anioEmision >= anioActual) return 0;
+  // Porcentaje fijo: 10% (ajusta si tu municipio usa otro valor, ej. 0.05 para 5%)
+  const mora = impuestoPredial * 0.1;
   return Math.round(mora * 100) / 100;
 }
 
+export function calcularMoraRedondeada(
+  impuestoPredial: number,
+  anioEmision: number,
+  idModulo: number
+): number {
+  const base = Number(impuestoPredial) || 0;
+  if (base <= 0) return 0;
+
+  // Aseguramos que el año sea número
+  const anioFactura = Number(anioEmision);
+  const anioActual = new Date().getFullYear();
+
+  // En Naranjal, la mora aplica solo si el año de emisión es menor al actual
+  if (anioFactura >= anioActual) return 0;
+
+  // Forzamos conversión a número en la comparación para evitar fallos de tipos (string vs number)
+  const id = Number(idModulo);
+  const URBANO = Number(MODULO_CATASTRO_URBANO);
+  const RURAL = Number(MODULO_CATASTRO_RURAL);
+
+  if (id === URBANO || id === RURAL) {
+    const mora = base * 0.1; // 10% de recargo legal
+    return Math.round(mora * 100) / 100;
+  }
+
+  return 0;
+}
 // -------------------------------------------------------------------
 // Consulta principal (facturas individuales)
 // -------------------------------------------------------------------
