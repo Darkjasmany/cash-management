@@ -77,7 +77,8 @@ export function calcularInteresExacto(
   fechaCorte: Date,
   modulo: ModuloSiim,
   intereses: InteresisSiim[],
-  esCatastro: boolean = false
+  esCatastro: boolean = false,
+  debugId?: number
 ): number {
   if (!baseImponible || baseImponible <= 0) return 0;
 
@@ -96,10 +97,13 @@ export function calcularInteresExacto(
   const fechaInicio = new Date(fechaCreacion);
   fechaInicio.setDate(fechaInicio.getDate() + (modulo.diasAdicionales || 0));
 
-  const anioFactura = fechaCreacion.getFullYear();
+  // ✅ CORRECCIÓN: usar año de fechaInicio para decidir si sumar meses
+  const anioInicio = fechaInicio.getFullYear();
   const anioCorte = fechaCorte.getFullYear();
-  const subirMeses = !esCatastro || (esCatastro && anioFactura === anioCorte);
-  if (subirMeses) fechaInicio.setMonth(fechaInicio.getMonth() + mesesPeriodo);
+  const subirMeses = !esCatastro || (esCatastro && anioInicio === anioCorte);
+  if (subirMeses) {
+    fechaInicio.setMonth(fechaInicio.getMonth() + mesesPeriodo);
+  }
 
   const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
   const periodoEmision = toPeriodo(fechaInicio);
@@ -109,32 +113,46 @@ export function calcularInteresExacto(
   let totalPorcentaje = 0;
   for (const i of intereses) {
     const p = i.ano * 100 + i.mes;
-    if (p >= periodoEmision && p <= periodoActual) totalPorcentaje += i.porcentaje || 0;
+    if (p >= periodoEmision && p <= periodoActual) {
+      totalPorcentaje += i.porcentaje || 0;
+    }
   }
   if (totalPorcentaje === 0) return 0;
 
   const totalIntereses = (totalPorcentaje * ((modulo.porcentaje || 0) / 100)) / 100;
-  return totalIntereses * baseImponible;
+  const valorInteres = totalIntereses * baseImponible;
+
+  // Log de depuración (actívalo poniendo DEBUG_INTERES=true en .env)
+  if (process.env.DEBUG_INTERES === "true") {
+    console.log(`[Interés] id=${debugId ?? "?"} base=${baseImponible.toFixed(4)}`);
+    console.log(`  fechaInicio=${fechaInicio.toISOString()} subirMeses=${subirMeses}`);
+    console.log(`  periodoEmision=${periodoEmision} periodoActual=${periodoActual}`);
+    console.log(`  totalPorcentaje=${totalPorcentaje} modulo.porcentaje=${modulo.porcentaje}`);
+    console.log(`  totalIntereses=${totalIntereses} valorInteres=${valorInteres.toFixed(4)}`);
+  }
+
+  return isNaN(valorInteres) ? 0 : valorInteres;
 }
 
-// Interés redondeado a 2 decimales (por factura)
 export function calcularInteresRedondeado(
   baseImponible: number,
   fechaCreacion: Date,
   fechaCorte: Date,
   modulo: ModuloSiim,
   intereses: InteresisSiim[],
-  esCatastro: boolean = false
+  esCatastro: boolean = false,
+  debugId?: number
 ): number {
-  const exacto = calcularInteresExacto(
+  const exact = calcularInteresExacto(
     baseImponible,
     fechaCreacion,
     fechaCorte,
     modulo,
     intereses,
-    esCatastro
+    esCatastro,
+    debugId
   );
-  return Math.round(exacto * 100) / 100;
+  return Math.round(exact * 100) / 100;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -145,7 +163,6 @@ export function calcularInteresRedondeado(
 // ─────────────────────────────────────────────────────────────
 export function calcularDescuentoUrbano(impuestoPredial: number, anioEmision: number): number {
   if (impuestoPredial <= 0) return 0;
-
   const ahora = new Date();
   if (anioEmision !== ahora.getFullYear()) return 0;
   const mes = ahora.getMonth(); // 0=Enero

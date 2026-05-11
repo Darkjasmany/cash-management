@@ -29,6 +29,8 @@ SELECT * FROM (
         -- exoneracion
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 65 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS exoneracion,
+        -- cem (no aplica en urbano)
+        0.00 AS cem,
         -- base_predial_pura (impuesto + exoneración) se mantiene por si acaso
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro IN (66, 65) 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS base_predial_pura,
@@ -96,12 +98,14 @@ SELECT * FROM (
 
     UNION ALL
 
-    -- MÓDULO AGUA (sin cambios)
+    -- MÓDULO AGUA
     SELECT 
         f.id, f.id_modulo, f."fechaCreacion", c.id, TRIM(c.cedula), 
         TRIM(c.apellido || ' ' || c.nombre),
+        -- exclude interés agua (5)
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro NOT IN (5) 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS total_nominal,
+        -- servicio_administrativo agua: rubro id=7
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 7 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS servicio_administrativo,
         0.00 AS bomberos,

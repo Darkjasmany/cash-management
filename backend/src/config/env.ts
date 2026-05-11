@@ -10,6 +10,7 @@ const envSchema = z.object({
   MODULO_CATASTRO_URBANO: z.string().default("1"),
   MODULO_CATASTRO_RURAL: z.string().default("2"),
   MODULO_AGUA_POTABLE: z.string().default("3"),
+  DEBUG_INTERES: z.enum(["true", "false"]).default("true"),
 });
 
 const parsed = envSchema.safeParse(process.env);

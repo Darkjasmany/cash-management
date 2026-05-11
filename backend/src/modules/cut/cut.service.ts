@@ -55,7 +55,6 @@ interface FacturaGuardada {
   montoDescuento: number;
   montoRecargo: number;
   totalFactura: number;
-  // Nuevos campos para auditoría
   impuestoPredial: number;
   exoneracion: number;
   cem: number;
@@ -139,7 +138,7 @@ export class CutService {
 
       const totalNominal = Number(fila.total_nominal) || 0;
       const sa = Number(fila.servicio_administrativo) || 0;
-      const impuestoPredial = Number(fila.impuesto_predial) || 0; // ← nueva base
+      const impuestoPredial = Number(fila.impuesto_predial) || 0;
       const exoneracion = Number(fila.exoneracion) || 0;
       const cem = Number(fila.cem) || 0;
 
@@ -169,9 +168,8 @@ export class CutService {
       // ---- 2. Base imponible del interés (según Java) ----
       // base = totalNominal - servicios_administrativos
       let baseInteres = totalNominal - sa;
-      // En urbano, si hay descuento/recargo, se suma a la base (según Java)
       if (fila.id_modulo === MODULO_CATASTRO_URBANO && esAnioActual) {
-        baseInteres += descuento + recargo;
+        baseInteres += descuento + recargo; // solo urbano
       }
       baseInteres = Math.max(0, baseInteres);
 
@@ -182,13 +180,15 @@ export class CutService {
         fechaCorte,
         modulo,
         intereses,
-        esCatastro
+        esCatastro,
+        fila.id_factura
       );
 
       // ---- 4. Mora (solo años anteriores, usando impuestoPredial) ----
-      const mora = esCatastro
-        ? await calcularMoraRedondeada(impuestoPredial, anioEmision, fila.id_modulo)
-        : 0;
+      let mora = 0;
+      if (esCatastro && anioEmision < anioCorte) {
+        mora = await calcularMoraRedondeada(impuestoPredial, anioEmision, fila.id_modulo);
+      }
 
       // ---- 5. Total de la factura ----
       const totalFactura =
@@ -224,10 +224,9 @@ export class CutService {
         montoDescuento: descuento,
         montoRecargo: recargo,
         totalFactura: totalFactura,
-        // --- NUEVOS campos ---
-        impuestoPredial: impuestoPredial, // viene de fila.impuesto_predial
-        exoneracion: fila.exoneracion ?? 0,
-        cem: fila.cem ?? 0,
+        impuestoPredial: impuestoPredial,
+        exoneracion: exoneracion,
+        cem: cem,
       });
     }
 
@@ -256,7 +255,6 @@ export class CutService {
             montoDescuento: f.montoDescuento,
             montoRecargo: f.montoRecargo,
             totalFactura: f.totalFactura,
-            // Nuevos campos
             impuestoPredial: f.impuestoPredial,
             exoneracion: f.exoneracion,
             cem: f.cem,
