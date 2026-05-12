@@ -18,6 +18,7 @@ export interface FilaSiim {
   referencia: string;
 }
 
+// ─── Registro consolidado listo para guardar / exportar ──────
 export interface RegistroDeuda {
   tipo: string;
   contrapartida: string;
@@ -60,11 +61,4 @@ export interface ModuloSiim {
   periodicidad: number;
   porcentaje: number;
   diasAdicionales: number;
-}
-
-export interface RubroSiim {
-  id: number;
-  calculable: number;
-  valor: number;
-  descripcion: string;
 }

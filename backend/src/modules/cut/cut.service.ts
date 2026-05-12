@@ -137,7 +137,7 @@ export class CutService {
       const impuestoPredial = Number(fila.impuesto_predial) || 0;
       const exoneracion = Number(fila.exoneracion) || 0;
       const cem = Number(fila.cem) || 0;
-      // Si el impuesto es 4.5 y exoneración -4.5, el impuestoNeto será 0.
+
       // Si queda un sobrante, se calculará solo sobre ese valor.
       const impuestoNeto = Math.max(0, impuestoPredial + exoneracion); // filtro para evitar valores negativos, garantizando si es negativo muestra 0
 
@@ -159,7 +159,6 @@ export class CutService {
         let dr = 0;
         if (Number(fila.id_modulo) === MODULO_CATASTRO_URBANO) {
           // Si el impuestoNeto es 0, el descuento será 0
-          // dr = calcularDescuentoUrbano(impuestoPredial, anioEmision);
           dr = calcularDescuentoUrbano(impuestoNeto, anioEmision);
         } else {
           // dr = calcularDescuentoRural(impuestoPredial, anioEmision);
@@ -170,11 +169,7 @@ export class CutService {
       }
 
       // ---- 2. Base imponible del interés (según Java) ----
-      // base = totalNominal - servicios_administrativos
-      // let baseInteres = totalNominal - sa;
-
       let baseInteres = 0;
-
       if (esCatastro) {
         baseInteres = impuestoNeto;
         if (Number(fila.id_modulo) === MODULO_CATASTRO_URBANO && esAnioActual) {
@@ -184,7 +179,6 @@ export class CutService {
         // Para Agua Potable (y otros módulos) se usa el total nominal menos el servicio administrativo
         baseInteres = totalNominal - sa;
       }
-
       baseInteres = Math.max(0, baseInteres);
 
       // ---- 3. Interés redondeado (con logs para depurar) ----
@@ -202,8 +196,6 @@ export class CutService {
       let mora = 0;
       if (esCatastro && anioEmision < anioCorte) {
         mora = calcularMora(impuestoNeto, anioEmision, Number(fila.id_modulo));
-        // mora = calcularMora(impuestoPredial, anioEmision, Number(fila.id_modulo));
-        // mora = calcularMora(impuestoPredial, anioEmision, fechaCorte);
       }
 
       // ---- 5. Total de la factura ----
