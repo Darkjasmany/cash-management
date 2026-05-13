@@ -10,6 +10,7 @@ router.use(authenticate);
 
 router.post("/procesar", validateBody(processSchema), CutController.process);
 router.get("/activo", CutController.getActive);
+router.get("/cortes", CutController.getAll);
 router.get("/descargar/txt", CutController.downloadTxt);
 router.get("/descargar/xlsx", CutController.downloadExcel);
 

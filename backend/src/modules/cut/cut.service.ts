@@ -9,7 +9,7 @@ import {
   getInteresesSiim,
   getModuloSiim,
 } from "@/services/siim.service";
-import type { ModuloSiim, ResultadoProceso } from "@/types";
+import type { CuttingParams, ModuloSiim, ResultadoProceso } from "@/types";
 import ExcelJS from "exceljs";
 
 const MODULO_CATASTRO_URBANO = parseInt(env?.MODULO_CATASTRO_URBANO ?? "1");
@@ -549,5 +549,17 @@ export class CutService {
     ws2.views = [{ state: "frozen", ySplit: 2 }];
 
     return Buffer.from(await wb.xlsx.writeBuffer());
+  }
+
+  static async findAll(): Promise<CuttingParams[]> {
+    const cortes = await prisma.parametrosCorte.findMany({
+      orderBy: { estado: "asc" },
+    });
+
+    return cortes.map(corte => ({
+      ...corte,
+      fechaCorte: corte.fechaCorte.toISOString().split("T")[0],
+      creadoEn: corte.creadoEn.toISOString().split("T")[0],
+    }));
   }
 }

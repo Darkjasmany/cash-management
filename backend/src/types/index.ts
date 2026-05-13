@@ -62,3 +62,12 @@ export interface ModuloSiim {
   porcentaje: number;
   diasAdicionales: number;
 }
+
+export interface CuttingParams {
+  id: number;
+  fechaCorte: String;
+  estado: string;
+  creadoPor: number;
+  nombreUsuario: string;
+  creadoEn: String;
+}

@@ -71,4 +71,13 @@ export class CutController {
       next(error);
     }
   };
+
+  static getAll = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const cuts = await CutService.findAll();
+      res.status(200).json({ success: true, data: cuts });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
