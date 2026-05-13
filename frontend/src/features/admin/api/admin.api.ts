@@ -27,6 +27,7 @@ export async function getUsers(): Promise<AdminUser[]> {
   try {
     const { data } = await api.get("/admin/users");
     return data.data;
+    
   } catch (error) {
     handleError(error);
   }

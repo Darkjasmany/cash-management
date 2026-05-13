@@ -1,5 +1,7 @@
 import { AuthRoutes } from "@/features/auth/AuthRoutes";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import UsersPage from "./features/admin/pages/UsersPage";
+import CutsPage from "./features/cut/pages/CutsPage";
 import DashboardLayout from "./layouts/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import { useAuthStore } from "./store/auth.store";
@@ -30,8 +32,9 @@ export default function Router(){
           <Route path="players/:id/report" element={<PlayerReportPage />} />
           <Route path="matches" element={<MatchesPage />} />
           <Route path="matches/:id/flow" element={<MatchFlowPage />} />
-          <Route path="admin/categories" element={<CategoriesPage />} />
-          <Route path="admin/users" element={<UsersPage />} /> */}
+          <Route path="admin/categories" element={<CategoriesPage />} />*/}
+          <Route path="process" element={<CutsPage />}/>
+          <Route path="admin/users" element={<UsersPage />} /> 
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
