@@ -10,11 +10,11 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { label: "Dashboard", path: "/", icon: "🏠" },
-  { label: "Procesar Corte", path: "/procesar", icon: "✂" },
-  { label: "Ver Corte Activo", path: "/activo", icon: "💰" },
-  { label: "Generar TXT & Excel", path: "/matches", icon: "🗄" },
-  // { label: "Categorías", path: "/admin/categories", icon: "🏷️", adminOnly: true },
+  { label: "Jugadores", path: "/players", icon: "👥" },
+  { label: "Equipos", path: "/teams", icon: "🏆" },
+  { label: "Partidos", path: "/matches", icon: "⚽" },
   { label: "Usuarios", path: "/admin/users", icon: "⚙️", adminOnly: true },
+  { label: "Categorías", path: "/admin/categories", icon: "🏷️", adminOnly: true },
 ];
 
 const Sidebar = () => {

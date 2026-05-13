@@ -14,7 +14,7 @@ const Navbar = () => {
     <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0">
       <div className="flex items-center gap-2">
         <span className="select-none">
-          Fútbol<span className="text-sky-400">System</span>
+          Cash<span className="text-sky-400">Management</span>
         </span>
       </div>
 
