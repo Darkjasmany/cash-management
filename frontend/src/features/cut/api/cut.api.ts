@@ -50,6 +50,15 @@ export interface CorteActivo {
   };
 }
 
+export interface Cortes {
+  id: number;
+  fechaCorte: String;
+  estado: string;
+  creadoPor: number;
+  nombreUsuario: string;
+  creadoEn: String;
+}
+
 export async function proccessCutting(fechaCorte: string): Promise<ResultadoProceso> {
   try {
     const { data } = await api.post("/api/cut/procesar", { fechaCorte });
@@ -68,7 +77,7 @@ export async function getActiveCutting(page = 1, limit = 50): Promise<CorteActiv
   }
 }
 
-export async function getCuttings() {
+export async function getCuttings(): Promise<Cortes[]> {
   try {
     const { data } = await api.get("/api/cut/cortes");
     return data.data;

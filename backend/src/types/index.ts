@@ -65,9 +65,9 @@ export interface ModuloSiim {
 
 export interface CuttingParams {
   id: number;
-  fechaCorte: String;
+  fechaCorte: string;
   estado: string;
   creadoPor: number;
   nombreUsuario: string;
-  creadoEn: String;
+  creadoEn: string;
 }

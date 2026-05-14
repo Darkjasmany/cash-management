@@ -1,8 +1,15 @@
+import { useState } from "react";
+import { useCuttings, useProccessCut } from "../hooks/useCut";
 
 const CutsPage = () => {
-  return (
-    <div>CutsPage</div>
-  )
-}
+  const [searchTerm, setSearchTerm] = useState("");
 
-export default CutsPage
+  const { data: cuttings = [], isLoading } = useCuttings();
+  const createCut = useProccessCut();
+
+  const filtered = cuttings.filter(c => c.fechaCorte.includes(searchTerm));
+
+  return <div>CutsPage</div>;
+};
+
+export default CutsPage;

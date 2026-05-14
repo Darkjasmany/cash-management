@@ -11,7 +11,7 @@ export function useCuttings() {
   });
 }
 
-export function proccessCut() {
+export function useProccessCut() {
   const queryClient = useQueryClient();
   return useMutation({
     // mutationFn: ({ fechaCorte }: { fechaCorte: string }) => proccessCutting(fechaCorte),
@@ -26,7 +26,7 @@ export function proccessCut() {
   });
 }
 
-export function getActiveCut() {
+export function useGetActiveCut() {
   return useMutation({
     mutationFn: ({ page, limit }: { page: number; limit: number }) => getActiveCutting(page, limit),
     onSuccess: () => {
