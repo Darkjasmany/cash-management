@@ -55,91 +55,7 @@ export async function getModuloSiim(idModulo: number): Promise<ModuloSiim | null
 //   → el interés empieza desde la fechaCreacion directamente
 // ─────────────────────────────────────────────────────────────
 
-export function calcularInteresRedondeado(
-  baseImponible: number,
-  fechaCreacionFactura: Date, // <--- Usamos la fecha de creación real de la factura
-  fechaCorte: Date,
-  modulo: ModuloSiim,
-  intereses: InteresisSiim[],
-  esCatastro: boolean,
-  idFactura?: number // <--- Conservamos para tus logs de depuración
-): number {
-  if (baseImponible <= 0) return 0;
-
-  // 1. Determinar el periodo de inicio (Mes siguiente a la creación)
-  // Si la factura se creó en mayo de 2019, el interés corre desde junio de 2019
-  const fechaInicioInteres = new Date(fechaCreacionFactura);
-  fechaInicioInteres.setMonth(fechaInicioInteres.getMonth() + 1);
-
-  const anioInicio = fechaInicioInteres.getFullYear();
-  const mesInicio = fechaInicioInteres.getMonth() + 1;
-
-  const anioFin = fechaCorte.getFullYear();
-  const mesFin = fechaCorte.getMonth() + 1;
-
-  const periodoInicio = anioInicio * 100 + mesInicio;
-  const periodoFin = anioFin * 100 + mesFin;
-
-  // 2. Filtrar y sumar los porcentajes de la tabla de intereses
-  const totalPorcentaje = intereses
-    .filter(i => {
-      const p = i.ano * 100 + i.mes;
-      return p >= periodoInicio && p <= periodoFin;
-    })
-    .reduce((acc, i) => acc + Number(i.porcentaje), 0);
-
-  // 3. Cálculo final con el factor del módulo
-  const factorModulo = (modulo.porcentaje || 0) / 100;
-  const valorInteres = baseImponible * (totalPorcentaje / 100) * factorModulo;
-
-  // Aquí puedes descomentar tus logs si quieres ver el comportamiento en la consola:
-  // if (idFactura === 8189620 || idFactura === 8175164) {
-  //   console.log(`Factura #${idFactura} | Base: ${baseImponible} | Porcentaje Acumulado: ${totalPorcentaje}% | Interés: ${valorInteres}`);
-  // }
-
-  // 4. Retornar con el redondeo financiero de tu helper
-  return toFixedCurrency(valorInteres);
-}
-
-export function calcularInteresRedondeado2(
-  baseImponible: number,
-  fechaCreacionFactura: Date, // <--- Usar la fecha real del campo "fechaCreacion"
-  fechaCorte: Date,
-  intereses: InteresisSiim[],
-  modulo: ModuloSiim
-): number {
-  if (baseImponible <= 0) return 0;
-
-  // 1. Determinar el periodo de inicio (Mes siguiente a la creación)
-  // Si se creó en 2019-05, el interés empieza en 2019-06
-  const fechaInicioInteres = new Date(fechaCreacionFactura);
-  fechaInicioInteres.setMonth(fechaInicioInteres.getMonth() + 1);
-
-  const anioInicio = fechaInicioInteres.getFullYear();
-  const mesInicio = fechaInicioInteres.getMonth() + 1;
-
-  const anioFin = fechaCorte.getFullYear();
-  const mesFin = fechaCorte.getMonth() + 1;
-
-  const periodoInicio = anioInicio * 100 + mesInicio;
-  const periodoFin = anioFin * 100 + mesFin;
-
-  // 2. Sumar porcentajes de la tabla de intereses
-  const totalPorcentaje = intereses
-    .filter(i => {
-      const p = i.ano * 100 + i.mes;
-      return p >= periodoInicio && p <= periodoFin;
-    })
-    .reduce((acc, i) => acc + Number(i.porcentaje), 0);
-
-  // 3. Cálculo final con el factor del módulo (generalmente 1.0 para Agua)
-  const factorModulo = (modulo.porcentaje || 0) / 100;
-  const valorInteres = baseImponible * (totalPorcentaje / 100) * factorModulo;
-
-  return toFixedCurrency(valorInteres);
-}
-
-export function calcularInteresRedondeado1(
+export function calcularInteresExacto(
   baseImponible: number,
   fechaCreacion: Date,
   fechaCorte: Date,
@@ -150,35 +66,34 @@ export function calcularInteresRedondeado1(
 ): number {
   if (!baseImponible || baseImponible <= 0) return 0;
 
+  const PERIODICIDAD_MESES: Record<number, number> = {
+    0: 0,
+    1: 0,
+    2: 1,
+    3: 3,
+    4: 6,
+    5: 12,
+  };
   const periodicidad = modulo.periodicidad;
   if (periodicidad === 0) return 0;
+  const mesesPeriodo = PERIODICIDAD_MESES[periodicidad] ?? 1;
 
-  // 1. Ajuste de Fecha de Inicio (Días de gracia)
   const fechaInicio = new Date(fechaCreacion);
   fechaInicio.setDate(fechaInicio.getDate() + (modulo.diasAdicionales || 0));
 
+  // ✅ CORRECCIÓN: usar año de fechaInicio para decidir si sumar meses
   const anioInicio = fechaInicio.getFullYear();
   const anioCorte = fechaCorte.getFullYear();
-
-  // ✅ REVERTIR A LÓGICA CORRECTA:
-  // Agua (!esCatastro) SIEMPRE sube meses.
-  // Predial (esCatastro) SOLO sube si es el año actual del corte.
   const subirMeses = !esCatastro || (esCatastro && anioInicio === anioCorte);
-
   if (subirMeses) {
-    // Para Agua (periodicidad 2), mesesPeriodo es 1
-    const PERIODICIDAD_MESES: Record<number, number> = { 2: 1, 3: 3, 4: 6, 5: 12 };
-    const mesesPeriodo = PERIODICIDAD_MESES[periodicidad] ?? 0;
     fechaInicio.setMonth(fechaInicio.getMonth() + mesesPeriodo);
   }
 
   const toPeriodo = (d: Date): number => d.getFullYear() * 100 + (d.getMonth() + 1);
   const periodoEmision = toPeriodo(fechaInicio);
   const periodoActual = toPeriodo(fechaCorte);
-
   if (periodoActual < periodoEmision) return 0;
 
-  // 2. Acumular porcentaje (Usa todos los decimales que vengan de la DB)
   let totalPorcentaje = 0;
   for (const i of intereses) {
     const p = i.ano * 100 + i.mes;
@@ -186,16 +101,42 @@ export function calcularInteresRedondeado1(
       totalPorcentaje += i.porcentaje || 0;
     }
   }
-
   if (totalPorcentaje === 0) return 0;
 
-  // 3. Cálculo final redondeado POR FACTURA
-  const factorModulo = (modulo.porcentaje || 0) / 100;
-  const valorInteres = baseImponible * (totalPorcentaje / 100) * factorModulo;
+  const totalIntereses = (totalPorcentaje * ((modulo.porcentaje || 0) / 100)) / 100;
+  const valorInteres = totalIntereses * baseImponible;
 
-  // Redondeamos cada factura individualmente como hace la lista de Java
-  // return toFixedCurrency(valorInteres);
-  return Math.round((valorInteres + Number.EPSILON) * 100) / 100;
+  // Log de depuración (actívalo poniendo DEBUG_INTERES=true en .env)
+  if (process.env.DEBUG_INTERES === "true") {
+    console.log(`[Interés] id=${debugId ?? "?"} base=${baseImponible.toFixed(4)}`);
+    console.log(`  fechaInicio=${fechaInicio.toISOString()} subirMeses=${subirMeses}`);
+    console.log(`  periodoEmision=${periodoEmision} periodoActual=${periodoActual}`);
+    console.log(`  totalPorcentaje=${totalPorcentaje} modulo.porcentaje=${modulo.porcentaje}`);
+    console.log(`  totalIntereses=${totalIntereses} valorInteres=${valorInteres.toFixed(4)}`);
+  }
+
+  return isNaN(valorInteres) ? 0 : valorInteres;
+}
+
+export function calcularInteresRedondeado(
+  baseImponible: number,
+  fechaCreacion: Date,
+  fechaCorte: Date,
+  modulo: ModuloSiim,
+  intereses: InteresisSiim[],
+  esCatastro: boolean = false,
+  debugId?: number
+): number {
+  const exact = calcularInteresExacto(
+    baseImponible,
+    fechaCreacion,
+    fechaCorte,
+    modulo,
+    intereses,
+    esCatastro,
+    debugId
+  );
+  return Math.round(exact * 100) / 100;
 }
 
 // ─────────────────────────────────────────────────────────────
