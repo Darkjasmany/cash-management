@@ -376,10 +376,10 @@ export class CutService {
   }
 
   private static construirReferencia(g: GrupoArchivo): string {
-    const periodos = [...g.periodos].sort().join(", ");
-    if (g.id_modulo === MODULO_CATASTRO_URBANO) return `Catastro urbano. Años: ${periodos}`;
-    if (g.id_modulo === MODULO_CATASTRO_RURAL) return `Catastro rural. Años: ${periodos}`;
-    return `${g.refBaseAgua} Emisiones: ${periodos}`;
+    const periodos = [...g.periodos].sort().join(" ");
+    if (g.id_modulo === MODULO_CATASTRO_URBANO) return `Catastro urbano Años ${periodos}`;
+    if (g.id_modulo === MODULO_CATASTRO_RURAL) return `Catastro rural Años ${periodos}`;
+    return `${g.refBaseAgua} Emisiones ${periodos}`;
   }
 
   // ─────────────────────────────────────────────────────────────

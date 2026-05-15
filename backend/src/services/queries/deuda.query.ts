@@ -114,7 +114,7 @@ SELECT * FROM (
         0.00 AS cem,
         0.00 AS base_predial_pura,
         ab.id::text AS contrapartida,
-        'Agua. Med: ' || COALESCE(ab."nroMedidor", '0') || ' Emisión: ' || ae.emision AS referencia
+        'Agua Med ' || COALESCE(ab."nroMedidor", '0') || ' Emisión: ' || ae.emision AS referencia
     FROM factura f
     JOIN factura_detalle fd ON fd.id_factura = f.id
     JOIN rubro r ON r.id = fd.id_rubro
