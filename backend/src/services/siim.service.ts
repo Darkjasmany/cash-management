@@ -1,4 +1,5 @@
 import { env } from "@/config/env";
+import { toFixedCurrency } from "@/helpers";
 import { siimPool } from "@/lib/db";
 import type { FilaSiim, InteresisSiim, ModuloSiim } from "@/types";
 import { GET_DEUDAS_SIIM_SQL } from "./queries/deuda.query";
@@ -165,7 +166,9 @@ export function calcularDescuentoUrbano(impuestoPredial: number, anioEmision: nu
   ];
   const quincena = dia <= 15 ? 0 : 1;
   const porcentaje = tabla[mes][quincena];
-  return Math.round(impuestoPredial * (porcentaje / 100) * -1 * 100) / 100;
+  // return Math.round(impuestoPredial * (porcentaje / 100) * -1 * 100) / 100;
+  const descuento = impuestoPredial * (porcentaje / 100) * -1;
+  return toFixedCurrency(descuento);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -181,7 +184,9 @@ export function calcularDescuentoRural(impuestoPredial: number, anioEmision: num
   // Rural no tiene recargo segundo semestre
   if (mes >= 6) return 0;
   // Descuento fijo 10%
-  return Math.round(impuestoPredial * 0.1 * -1 * 100) / 100;
+  // return Math.round(impuestoPredial * 0.1 * -1 * 100) / 100;
+  const descuento = impuestoPredial * 0.1 * -1;
+  return toFixedCurrency(descuento);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -211,8 +216,10 @@ export function calcularMora(
   const id = Number(idModulo);
 
   if (id === MODULO_CATASTRO_URBANO || id === MODULO_CATASTRO_RURAL) {
-    const mora = base * 0.1; // 10% de recargo legal
-    return Math.round(mora * 100) / 100;
+    // 10% de recargo legal
+    // const mora = base * 0.1;
+    // return Math.round(mora * 100) / 100;
+    return toFixedCurrency(base * 0.1);
   }
 
   return 0;
