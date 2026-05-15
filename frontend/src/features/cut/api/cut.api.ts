@@ -2,10 +2,14 @@ import api from "@/api/client";
 import { handleError } from "@/api/utils";
 
 export interface ResultadoProceso {
-  idParametro: number;
-  fechaCorte: string;
-  totalRegistros: number;
-  totalDeuda: number;
+  success: boolean;
+  message: string;
+  data: {
+    idParametro: number;
+    fechaCorte: string;
+    totalRegistros: number;
+    totalDeuda: number;
+  };
 }
 
 export interface RegistroDeuda {
@@ -61,8 +65,8 @@ export interface Cortes {
 
 export async function proccessCutting(fechaCorte: string): Promise<ResultadoProceso> {
   try {
-    const { data } = await api.post("/api/cut/procesar", { fechaCorte });
-    return data.data;
+    const { data } = await api.post("/cut/procesar", { fechaCorte });
+    return data;
   } catch (error) {
     handleError(error);
   }
@@ -70,7 +74,7 @@ export async function proccessCutting(fechaCorte: string): Promise<ResultadoProc
 
 export async function getActiveCutting(page = 1, limit = 50): Promise<CorteActivo> {
   try {
-    const { data } = await api.get("/api/cut/activo", { params: { page, limit } });
+    const { data } = await api.get("/cut/activo", { params: { page, limit } });
     return data;
   } catch (error) {
     handleError(error);
@@ -79,7 +83,7 @@ export async function getActiveCutting(page = 1, limit = 50): Promise<CorteActiv
 
 export async function getCuttings(): Promise<Cortes[]> {
   try {
-    const { data } = await api.get("/api/cut/cortes");
+    const { data } = await api.get("/cut/cortes");
     return data.data;
   } catch (error) {
     handleError(error);
@@ -89,7 +93,7 @@ export async function getCuttings(): Promise<Cortes[]> {
 export async function dowloadTxt() {
   try {
     // {responseType: 'blob'} en axios sirve para indicarle a la librería que la respuesta del servidor debe tratarse como un objeto Blob (Binary Large Object) en lugar del JSON predeterminado. Esto es indispensable para descargar archivos, manejar imágenes, PDFs o cualquier dato binario recibido de una API
-    const response = await api.get("/api/cut/descargar/txt", { responseType: "blob" });
+    const response = await api.get("/cut/descargar/txt", { responseType: "blob" });
     const url = URL.createObjectURL(new Blob([response.data], { type: "text/plain" }));
     const link = document.createElement("a"); // creamos un enlace invisible en la memoria
     link.href = url; //Le asignamos la dirección de la memoria RAM que creamos arriba.
@@ -103,7 +107,7 @@ export async function dowloadTxt() {
 
 export async function dowloadExcel() {
   try {
-    const response = await api.get("/api/cut/descargar/excel", { responseType: "blob" });
+    const response = await api.get("/cut/descargar/xlsx", { responseType: "blob" });
     const url = URL.createObjectURL(
       new Blob([response.data], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
