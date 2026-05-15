@@ -54,25 +54,23 @@ export async function getModuloSiim(idModulo: number): Promise<ModuloSiim | null
 //   Facturas de años anteriores en catastro: NO suma meses
 //   → el interés empieza desde la fechaCreacion directamente
 // ─────────────────────────────────────────────────────────────
-
 export function calcularInteresRedondeado(
   baseImponible: number,
-  fechaCreacionFactura: Date, // <--- Usamos la fecha de creación real de la factura
+  fechaCreacionFactura: Date,
   fechaCorte: Date,
   modulo: ModuloSiim,
-  intereses: InteresisSiim[],
-  esCatastro: boolean,
-  idFactura?: number // <--- Conservamos para tus logs de depuración
+  intereses: InteresisSiim[]
 ): number {
   if (baseImponible <= 0) return 0;
 
-  // 1. Determinar el periodo de inicio (Mes siguiente a la creación)
-  // Si la factura se creó en mayo de 2019, el interés corre desde junio de 2019
-  const fechaInicioInteres = new Date(fechaCreacionFactura);
-  fechaInicioInteres.setMonth(fechaInicioInteres.getMonth() + 1);
+  // Cálculo matemático para evitar el desborde de días de JS (ej. 31 de Mayo)
+  let anioInicio = fechaCreacionFactura.getFullYear();
+  let mesInicio = fechaCreacionFactura.getMonth() + 1 + 1; // +1 por base 0, +1 para ir al mes siguiente
 
-  const anioInicio = fechaInicioInteres.getFullYear();
-  const mesInicio = fechaInicioInteres.getMonth() + 1;
+  if (mesInicio > 12) {
+    mesInicio = 1;
+    anioInicio += 1;
+  }
 
   const anioFin = fechaCorte.getFullYear();
   const mesFin = fechaCorte.getMonth() + 1;
@@ -80,7 +78,7 @@ export function calcularInteresRedondeado(
   const periodoInicio = anioInicio * 100 + mesInicio;
   const periodoFin = anioFin * 100 + mesFin;
 
-  // 2. Filtrar y sumar los porcentajes de la tabla de intereses
+  // Filtrar y sumar los porcentajes de la tabla de intereses
   const totalPorcentaje = intereses
     .filter(i => {
       const p = i.ano * 100 + i.mes;
@@ -88,16 +86,10 @@ export function calcularInteresRedondeado(
     })
     .reduce((acc, i) => acc + Number(i.porcentaje), 0);
 
-  // 3. Cálculo final con el factor del módulo
+  // Aplicar factor del módulo
   const factorModulo = (modulo.porcentaje || 0) / 100;
   const valorInteres = baseImponible * (totalPorcentaje / 100) * factorModulo;
 
-  // Aquí puedes descomentar tus logs si quieres ver el comportamiento en la consola:
-  // if (idFactura === 8189620 || idFactura === 8175164) {
-  //   console.log(`Factura #${idFactura} | Base: ${baseImponible} | Porcentaje Acumulado: ${totalPorcentaje}% | Interés: ${valorInteres}`);
-  // }
-
-  // 4. Retornar con el redondeo financiero de tu helper
   return toFixedCurrency(valorInteres);
 }
 

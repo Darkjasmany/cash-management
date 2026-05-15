@@ -181,15 +181,13 @@ export class CutService {
       }
       baseInteres = Math.max(0, baseInteres);
 
-      // ---- 3. Interés redondeado (con logs para depurar) ----
+      // ---- 3. Interés redondeado ----
       const interes = calcularInteresRedondeado(
         baseInteres,
         fechaCreacion,
         fechaCorte,
         modulo,
-        intereses,
-        esCatastro,
-        fila.id_factura
+        intereses
       );
 
       // ---- 4. Mora (solo años anteriores, usando impuestoPredial) ----
