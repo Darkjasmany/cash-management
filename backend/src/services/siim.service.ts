@@ -53,8 +53,90 @@ export async function getModuloSiim(idModulo: number): Promise<ModuloSiim | null
 //   if (!esCatastro) → siempre suma meses
 //   Facturas de años anteriores en catastro: NO suma meses
 //   → el interés empieza desde la fechaCreacion directamente
+// periodicidad
+// 0	No calcula
+// 1	Diario
+// 2	Mensual
+// 3	Trimestral
+// 4	Semestral
+// 5	Anual
 // ─────────────────────────────────────────────────────────────
 export function calcularInteresRedondeado(
+  baseImponible: number,
+  fechaCreacion: Date,
+  fechaCorte: Date,
+  modulo: ModuloSiim,
+  intereses: InteresisSiim[]
+): number {
+  // Validar base imponible inicial
+  if (!baseImponible || baseImponible <= 0) return 0;
+
+  // Validar la periodicidad del módulo
+  const periodicidad = Number(modulo.periodicidad);
+  if (periodicidad === 0) return 0; // 0 significa que no calcula interés
+
+  const anioFactura = fechaCreacion.getFullYear();
+  const anioCorte = fechaCorte.getFullYear();
+
+  /// Forzar ID de módulo a número para evitar discrepancias de tipos
+  const idModulo = Number(modulo.id);
+  const esCatastro = idModulo === MODULO_CATASTRO_URBANO || idModulo === MODULO_CATASTRO_RURAL;
+
+  // Exención por ley (COOTAD): El catastro del año actual no genera interés en el corte
+  if (esCatastro && periodicidad === 5 && anioFactura === anioCorte) return 0;
+
+  let periodoInicio = 0;
+
+  if (periodicidad === 5) {
+    // Según COOTAD, el interés predial arranca el 1 de Enero del año SIGUIENTE
+    // Ejemplo: Factura de emisión 2025 -> Interés empieza en Enero de 2026 (202601) reforma al COOTAD
+    // periodoInicio = (anioFactura + 1) * 100 + 1; // Habilitar si se quiere mantener como  en el cootad
+    // periodoInicio = (anioFactura + 1) * 100;
+    // 💡 AJUSTE PARA CUADRAR CON EL SIIM:
+    // El sistema original empieza a contar los intereses desde Enero del año de la EMISIÓN.
+    // Ejemplo: Factura Rural 2022 -> El periodo inicial de interés es Enero de 2022 (202201).
+    periodoInicio = anioFactura * 100 + 1;
+  } else if (periodicidad === 2) {
+    // Lógica mensual estándar (Agua potable, etc.) -> Empieza el mes subsiguiente a la creación
+    let anioInicio = fechaCreacion.getFullYear();
+    let mesInicio = fechaCreacion.getMonth() + 1 + 1;
+
+    if (mesInicio > 12) {
+      mesInicio = 1;
+      anioInicio += 1;
+    }
+    periodoInicio = anioInicio * 100 + mesInicio;
+  }
+
+  // Determinar el periodo final basado en la fecha de corte
+  const anioFin = fechaCorte.getFullYear();
+  const mesFin = fechaCorte.getMonth() + 1;
+  const periodoFin = anioFin * 100 + mesFin;
+
+  // Si la fecha de corte es menor al inicio de la generación de intereses, no aplica
+  if (periodoFin < periodoInicio) return 0;
+
+  // Filtrar y acumular los porcentajes de la tabla de intereses que caen en el rango
+  const totalPorcentaje = intereses
+    .filter(i => {
+      const p = Number(i.ano) * 100 + Number(i.mes);
+      return p >= periodoInicio && p <= periodoFin;
+    })
+    .reduce((acc, i) => acc + Number(i.porcentaje), 0);
+
+  if (totalPorcentaje === 0) return 0;
+
+  // Obtener el factor multiplicador del módulo (por si tiene recargos adicionales configurados)
+  const factorModulo = (modulo.porcentaje || 0) / 100;
+
+  // Cálculo final del interés
+  const valorInteres = baseImponible * (totalPorcentaje / 100) * factorModulo;
+
+  // Retornar el valor redondeado a 2 decimales usando tu helper financiero estándar
+  return toFixedCurrency(valorInteres);
+}
+
+export function calcularInteresRedondeadoFuncionaAAPP(
   baseImponible: number,
   fechaCreacionFactura: Date,
   fechaCorte: Date,

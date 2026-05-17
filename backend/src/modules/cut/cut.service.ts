@@ -146,8 +146,8 @@ export class CutService {
       if (totalNominal <= 0 && impuestoNeto <= 0) continue;
 
       const esCatastro =
-        Number(fila.id_modulo) === MODULO_CATASTRO_URBANO ||
-        Number(fila.id_modulo) === MODULO_CATASTRO_RURAL;
+        Number(fila.id_modulo) === Number(MODULO_CATASTRO_URBANO) ||
+        Number(fila.id_modulo) === Number(MODULO_CATASTRO_RURAL);
       const fechaCreacion = new Date(fila.fecha_creacion);
       const anioEmision = fechaCreacion.getFullYear();
       const esAnioActual = anioEmision === anioCorte;
@@ -171,15 +171,21 @@ export class CutService {
       // ---- 2. Base imponible del interés (según Java) ----
       let baseInteres = 0;
       if (esCatastro) {
-        baseInteres = impuestoNeto;
+        baseInteres = impuestoNeto; // Aquí se vuelve 0 (0.00 predial + 0.00 exoneración)
+
         if (Number(fila.id_modulo) === MODULO_CATASTRO_URBANO && esAnioActual) {
-          baseInteres += descuento + recargo; // solo urbano
+          baseInteres += descuento + recargo;
+        } else if (Number(fila.id_modulo) === MODULO_CATASTRO_RURAL) {
+          baseInteres += cem; // Aquí 0 + 0.42 = 0.42
         }
       } else {
-        // Para Agua Potable (y otros módulos) se usa el total nominal menos el servicio administrativo
         baseInteres = totalNominal - sa;
       }
       baseInteres = Math.max(0, baseInteres);
+
+      // console.log(baseInteres, fechaCreacion, fechaCorte, modulo, intereses);
+      // console.log(typeof baseInteres, baseInteres);
+      // console.log(typeof modulo, modulo);
 
       // ---- 3. Interés redondeado ----
       const interes = calcularInteresRedondeado(
@@ -255,7 +261,7 @@ export class CutService {
             cem: f.cem,
           })),
         });
-        console.log(`  ✅ ${Math.min(i + chunkSize, facturas.length)} / ${facturas.length}`);
+        // console.log(`  ✅ ${Math.min(i + chunkSize, facturas.length)} / ${facturas.length}`);
       }
     }
 

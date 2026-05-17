@@ -74,7 +74,7 @@ SELECT * FROM (
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 137 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS exoneracion,
         -- cem (si existe)
-        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 3 
+        ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro = 325 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS cem,
         ROUND(SUM(CASE WHEN fd.estado = 1 AND fd.id_rubro IN (136, 137) 
                   THEN fd.cantidad * fd."valorUnitario" ELSE 0 END)::numeric, 2) AS base_predial_pura,
@@ -131,8 +131,8 @@ SELECT * FROM (
       AND NOT EXISTS (SELECT 1 FROM bloqueo_agua ba WHERE ba.id_abonado = ab.id)
     GROUP BY f.id, c.id, ab.id, ae.emision
 ) AS facturas
-ORDER BY nombre_cliente, fecha_creacion ASC
-
-;
-  `;
+-- WHERE facturas.cedula = '0920420353' -- ◄ FILTRO TEMPORAL DE DEPURACIÓN
+-- AND facturas.id_modulo = 2
+ORDER BY nombre_cliente, fecha_creacion ASC;
+;`;
 };
