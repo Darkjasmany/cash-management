@@ -388,10 +388,15 @@ export class CutService {
   static async generateTxt(): Promise<string> {
     const corte = await prisma.parametrosCorte.findFirst({ where: { estado: "ACTIVO" } });
     if (!corte) throw new Error("No hay corte activo.");
+
     const grupos = await CutService.agruparParaArchivo(corte.id);
     if (grupos.length === 0) throw new Error("No hay datos en el corte activo.");
-    const lineas = grupos.map(g =>
-      [
+
+    const lineas = grupos.map(g => {
+      // Sanitizamos el nombre antes de estructurar la línea del TXT
+      const nombreSanitizado = (g.nombreCliente || "").replace(/Ñ/g, "N").replace(/ñ/g, "n");
+
+      return [
         "CO",
         g.contrapartida,
         "USD",
@@ -402,9 +407,10 @@ export class CutService {
         CutService.construirReferencia(g),
         g.tipoId,
         g.numeroId,
-        g.nombreCliente,
-      ].join("\t")
-    );
+        nombreSanitizado,
+      ].join("\t");
+    });
+
     return lineas.join("\r\n");
   }
 
