@@ -183,10 +183,6 @@ export class CutService {
       }
       baseInteres = Math.max(0, baseInteres);
 
-      // console.log(baseInteres, fechaCreacion, fechaCorte, modulo, intereses);
-      // console.log(typeof baseInteres, baseInteres);
-      // console.log(typeof modulo, modulo);
-
       // ---- 3. Interés redondeado ----
       const interes = calcularInteresRedondeado(
         baseInteres,
@@ -261,7 +257,7 @@ export class CutService {
             cem: f.cem,
           })),
         });
-        // console.log(`  ✅ ${Math.min(i + chunkSize, facturas.length)} / ${facturas.length}`);
+        console.log(`  ✅ ${Math.min(i + chunkSize, facturas.length)} / ${facturas.length}`);
       }
     }
 
@@ -381,8 +377,8 @@ export class CutService {
 
   private static construirReferencia(g: GrupoArchivo): string {
     const periodos = [...g.periodos].sort().join(" ");
-    if (g.id_modulo === MODULO_CATASTRO_URBANO) return `Catastro urbano Años ${periodos}`;
-    if (g.id_modulo === MODULO_CATASTRO_RURAL) return `Catastro rural Años ${periodos}`;
+    if (g.id_modulo === MODULO_CATASTRO_URBANO) return `Catastro urbano anios ${periodos}`;
+    if (g.id_modulo === MODULO_CATASTRO_RURAL) return `Catastro rural anios ${periodos}`;
     return `${g.refBaseAgua} Emisiones ${periodos}`;
   }
 

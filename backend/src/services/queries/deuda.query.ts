@@ -38,7 +38,7 @@ SELECT * FROM (
                   FROM provincia pro, canton can, parroquia par, zona zon, sector sec, poligono pol, predio pre
                   WHERE pre.id = la.id_predio AND pol.id = pre.id_poligono AND sec.id = pol.id_sector AND zon.id = sec.id_zona 
                     AND par.id = zon.id_parroquia AND can.id = par.id_canton AND pro.id = can.id_provincia), '') AS contrapartida,
-        'Urbano Año: ' || EXTRACT(YEAR FROM f."fechaCreacion") AS referencia
+        'Urbano Anio: ' || EXTRACT(YEAR FROM f."fechaCreacion") AS referencia
     FROM factura f
     JOIN factura_detalle fd ON fd.id_factura = f.id
     JOIN rubro r ON r.id = fd.id_rubro
@@ -82,7 +82,7 @@ SELECT * FROM (
                   FROM provincia pro, canton can, parroquia par, zona_rural zon, sector_rural sec, poligono_rural pol, predio_rural pre
                   WHERE pre.id = lar.id_predio_rural AND pol.id = pre.id_poligono AND sec.id = pol.id_sector AND zon.id = sec.id_zona 
                     AND par.id = zon.id_parroquia AND can.id = par.id_canton AND pro.id = can.id_provincia), '') AS contrapartida,
-        'Rural Año: ' || EXTRACT(YEAR FROM f."fechaCreacion") AS referencia
+        'Rural Anio: ' || EXTRACT(YEAR FROM f."fechaCreacion") AS referencia
     FROM factura f
     JOIN factura_detalle fd ON fd.id_factura = f.id
     JOIN rubro r ON r.id = fd.id_rubro
