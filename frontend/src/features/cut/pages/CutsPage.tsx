@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { AiOutlineFileText } from "react-icons/ai";
 import { BiInfoCircle } from "react-icons/bi";
-import { RiFileExcel2Line } from "react-icons/ri";
 import { dowloadExcel, dowloadTxt, type ResultadoProceso } from "../api/cut.api";
 import CutForm from "../components/CutForm";
+import { DownloadButtons } from "../components/DownloadButtons";
 import { useProccessCut } from "../hooks/useCut";
 
 const CutsPage = () => {
@@ -114,31 +113,7 @@ const CutsPage = () => {
 
             {/* BOTONES DE DESCARGA */}
             <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-800">
-              <button
-                onClick={handleDownloadTxt}
-                disabled={isDownloadingTxt}
-                className="flex items-center gap-2 px-5 h-11 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 font-bold rounded-lg transition-all active:scale-95 shadow-lg shadow-amber-500/20"
-              >
-                {isDownloadingTxt ? (
-                  <div className="animate-spin h-4 w-4 border-2 border-slate-950 border-t-transparent rounded-full"></div>
-                ) : (
-                  <AiOutlineFileText className="text-xl" />
-                )}
-                {isDownloadingTxt ? "Generando TXT..." : "Descargar TXT"}
-              </button>
-
-              <button
-                onClick={handleDownloadExcel}
-                disabled={isDownloadingExcel}
-                className="flex items-center gap-2 px-5 h-11 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-400 text-white font-bold rounded-lg transition-all active:scale-95 shadow-lg shadow-emerald-600/20"
-              >
-                {isDownloadingExcel ? (
-                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                ) : (
-                  <RiFileExcel2Line className="text-xl" />
-                )}
-                {isDownloadingExcel ? "Generando Excel..." : "Descargar Excel"}
-              </button>
+              <DownloadButtons variant="full" />
             </div>
           </div>
         </div>

@@ -1,20 +1,20 @@
 import { AuthRoutes } from "@/features/auth/AuthRoutes";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import UsersPage from "./features/admin/pages/UsersPage";
+import CutsAllPage from "./features/cut/pages/CutsAllPage";
 import CutsPage from "./features/cut/pages/CutsPage";
 import DashboardLayout from "./layouts/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import { useAuthStore } from "./store/auth.store";
-
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated());
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth/login" replace />;
 }
 
-export default function Router(){
-    return(
-        <BrowserRouter>
+export default function Router() {
+  return (
+    <BrowserRouter>
       <Routes>
         <Route path="/auth/*" element={<AuthRoutes />} />
         <Route
@@ -33,11 +33,12 @@ export default function Router(){
           <Route path="matches" element={<MatchesPage />} />
           <Route path="matches/:id/flow" element={<MatchFlowPage />} />
           <Route path="admin/categories" element={<CategoriesPage />} />*/}
-          <Route path="process" element={<CutsPage />}/>
-          <Route path="admin/users" element={<UsersPage />} /> 
+          <Route path="process" element={<CutsPage />} />
+          <Route path="cuts" element={<CutsAllPage />} />
+          <Route path="admin/users" element={<UsersPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
-    )
+  );
 }

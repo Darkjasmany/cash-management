@@ -57,6 +57,8 @@ export interface CorteActivo {
 export interface Cortes {
   id: number;
   fechaCorte: String;
+  totalDeuda: String;
+  totalRegistros: String;
   estado: string;
   creadoPor: number;
   nombreUsuario: string;

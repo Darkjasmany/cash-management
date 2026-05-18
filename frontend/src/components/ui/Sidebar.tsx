@@ -11,8 +11,8 @@ type NavItem = {
 const navItems: NavItem[] = [
   { label: "Dashboard", path: "/", icon: "🏠" },
   { label: "Procesar Corte", path: "/process", icon: "✂" },
-  { label: "Ver Corte Activo", path: "/activo", icon: "💰" },
-  { label: "Generar TXT & Excel", path: "/matches", icon: "🗄" },
+  { label: "Ver Cortes", path: "/cuts", icon: "💰" },
+  // { label: "Generar TXT & Excel", path: "/matches", icon: "🗄" },
   // { label: "Categorías", path: "/admin/categories", icon: "🏷️", adminOnly: true },
   { label: "Usuarios", path: "/admin/users", icon: "⚙️", adminOnly: true },
 ];
