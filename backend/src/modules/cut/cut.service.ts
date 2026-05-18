@@ -95,7 +95,14 @@ export class CutService {
 
     // 2. Crear nuevo corte
     const corte = await prisma.parametrosCorte.create({
-      data: { fechaCorte, estado: "ACTIVO", creadoPor: usuarioId, nombreUsuario },
+      data: {
+        fechaCorte,
+        estado: "ACTIVO",
+        creadoPor: usuarioId,
+        nombreUsuario,
+        totalRegistros: "0",
+        totalDeuda: "0.00",
+      },
     });
     console.log(`✅ Corte #${corte.id} creado`);
 
@@ -261,16 +268,30 @@ export class CutService {
       }
     }
 
-    const totalDeuda = facturas.reduce((acc, f) => acc + f.totalFactura, 0);
+    // Totales finales númericos
+    const totalRegistrosCalc = facturas.length;
+    const totalDeudaCalc = facturas.reduce((acc, f) => acc + f.totalFactura, 0);
+    const totalDeudaRedondeado = Math.round(totalDeudaCalc * 100) / 100;
+
+    // Actualizamos los totales reales en la fila de ParametrosCorte
+    console.log(`📝 Actualizando totales en ParametrosCorte para el Corte #${corte.id}...`);
+    await prisma.parametrosCorte.update({
+      where: { id: corte.id },
+      data: {
+        totalRegistros: totalRegistrosCalc.toString(), // Guardado como String
+        totalDeuda: totalDeudaRedondeado.toFixed(2).toString(), // Guardado como String con 2 decimales
+      },
+    });
+
     console.log(
-      `🎉 Corte completado. Facturas: ${facturas.length} | Total: $${totalDeuda.toFixed(2)}\n`
+      `🎉 Corte completado. Facturas: ${totalRegistrosCalc} | Total: $${totalDeudaRedondeado.toFixed(2)}\n`
     );
 
     return {
       idParametro: corte.id,
       fechaCorte: fechaCorteStr,
-      totalRegistros: facturas.length,
-      totalDeuda: Math.round(totalDeuda * 100) / 100,
+      totalRegistros: totalRegistrosCalc,
+      totalDeuda: totalDeudaRedondeado,
     };
   }
 

@@ -38,12 +38,14 @@ enum EstadoCorte {
 
 // ─── Parámetros de corte ─────────────────────────────────────
 model ParametrosCorte {
-  id            Int         @id @default(autoincrement())
-  fechaCorte    DateTime    @db.Date
-  estado        EstadoCorte @default(ACTIVO)
-  creadoPor     Int
-  nombreUsuario String
-  creadoEn      DateTime    @default(now())
+  id             Int         @id @default(autoincrement())
+  fechaCorte     DateTime    @db.Date
+  totalRegistros String
+  totalDeuda     String
+  estado         EstadoCorte @default(ACTIVO)
+  creadoPor      Int
+  nombreUsuario  String
+  creadoEn       DateTime    @default(now())
 
   deudas DeudaBanco[]
 
@@ -83,7 +85,7 @@ model DeudaBanco {
   // --- NUEVOS CAMPOS: componentes originales del SQL (para auditoría y cálculos futuros) ---
   impuestoPredial Decimal @default(0) @db.Decimal(10, 2)
   exoneracion     Decimal @default(0) @db.Decimal(10, 2)
-  cem             Decimal @default(0) @db.Decimal(10, 2)  // solo rural, 0 para urbano/agua
+  cem             Decimal @default(0) @db.Decimal(10, 2) // solo rural, 0 para urbano/agua
 
   @@map("deuda_banco")
 }
