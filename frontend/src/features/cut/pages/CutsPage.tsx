@@ -100,14 +100,14 @@ const CutsPage = () => {
             {/* Alerta de procesamiento pesado para el usuario */}
             {anyDownloadPending && (
               <div className="flex items-start gap-3 bg-blue-950/40 border border-blue-800/60 p-3 rounded-lg mb-6 text-blue-400 text-xs animate-pulse">
-                <BiInfoCircle className="text-base flex-shrink-0 mt-0.5" />
+                <BiInfoCircle className="text-base shrink-0 mt-0.5" />
                 <div>
                   <span className="font-semibold block mb-0.5">
                     Generando archivo en el navegador
                   </span>
-                  Por favor espere. Al ser más de 200,000 registros, el navegador puede demorar unos
-                  segundos en estructurar el archivo binario antes de mostrar la ventana de
-                  guardado.
+                  Por favor espere. Al ser {result.data.totalRegistros} registros, el navegador
+                  puede demorar unos segundos en estructurar el archivo binario antes de mostrar la
+                  ventana de guardado.
                 </div>
               </div>
             )}
