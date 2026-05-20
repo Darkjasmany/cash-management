@@ -71,3 +71,10 @@ export interface CuttingParams {
   nombreUsuario: string;
   creadoEn: string;
 }
+
+export interface ResumenModuloDashboard {
+  id_modulo: number;
+  modulo: string;
+  totalClientes: number;
+  totalDeuda: number;
+}

@@ -41,7 +41,7 @@ export class CutController {
     }
   };
 
-  static downloadTxt = async (req: Request, res: Response, next: NextFunction) => {
+  static downloadTxt = async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const content = await CutService.generateTxt();
       const date = new Date().toISOString().split("T")[0].replace(/-/g, "");
@@ -55,7 +55,7 @@ export class CutController {
     }
   };
 
-  static downloadExcel = async (req: Request, res: Response, next: NextFunction) => {
+  static downloadExcel = async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const buffer = await CutService.generateExcel();
       const date = new Date().toISOString().split("T")[0].replace(/-/g, "");
@@ -76,6 +76,15 @@ export class CutController {
     try {
       const cuts = await CutService.findAll();
       res.status(200).json({ success: true, data: cuts });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  static getAllbyType = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const cutsByType = await CutService.findAllByType();
+      res.status(200).json({ success: true, data: cutsByType });
     } catch (error) {
       next(error);
     }

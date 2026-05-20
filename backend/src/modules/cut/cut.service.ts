@@ -9,7 +9,7 @@ import {
   getInteresesSiim,
   getModuloSiim,
 } from "@/services/siim.service";
-import type { CuttingParams, ModuloSiim, ResultadoProceso } from "@/types";
+import type { CuttingParams, ModuloSiim, ResultadoProceso, ResumenModuloDashboard } from "@/types";
 import ExcelJS from "exceljs";
 
 const MODULO_CATASTRO_URBANO = parseInt(env?.MODULO_CATASTRO_URBANO ?? "1");
@@ -588,5 +588,33 @@ export class CutService {
       fechaCorte: corte.fechaCorte.toISOString().split("T")[0],
       creadoEn: corte.creadoEn.toISOString().split("T")[0],
     }));
+  }
+
+  static async findAllByType(): Promise<ResumenModuloDashboard[]> {
+    const resultadoAgrupado = await prisma.deudaBanco.groupBy({
+      by: ["id_modulo"],
+      _count: { idCliente: true },
+      _sum: { totalFactura: true },
+      orderBy: { id_modulo: "asc" },
+    });
+
+    const nombresModulos: Record<number, string> = {
+      1: "MODULO URBANO",
+      2: "MODULO RURAL",
+      3: "MODULO AGUA POTABLE",
+    };
+
+    return resultadoAgrupado.map(result => {
+      const idModulo = result.id_modulo;
+
+      const totalDeuda = Number(result._sum.totalFactura) || 0;
+
+      return {
+        id_modulo: idModulo,
+        modulo: nombresModulos[idModulo] || "S/N",
+        totalClientes: result._count.idCliente,
+        totalDeuda: Math.round(totalDeuda * 100) / 100,
+      };
+    });
   }
 }
