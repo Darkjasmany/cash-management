@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BiInfoCircle } from "react-icons/bi";
-import { dowloadExcel, dowloadTxt, type ResultadoProceso } from "../api/cut.api";
+import { type ResultadoProceso } from "../api/cut.api";
 import CutForm from "../components/CutForm";
 import { DownloadButtons } from "../components/DownloadButtons";
 import { useProccessCut } from "../hooks/useCut";
@@ -9,40 +9,12 @@ const CutsPage = () => {
   const createCut = useProccessCut();
   const result = createCut.data as ResultadoProceso | undefined;
 
-  // Estados para controlar el feedback de los botones de descarga
-  const [isDownloadingTxt, setIsDownloadingTxt] = useState(false);
-  const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
-
-  // Manejador para la descarga de TXT
-  const handleDownloadTxt = async () => {
-    setIsDownloadingTxt(true);
-    try {
-      await dowloadTxt();
-    } catch (error) {
-      console.error("Error al descargar TXT", error);
-    } finally {
-      setIsDownloadingTxt(false);
-    }
-  };
-
-  // Manejador para la descarga de Excel
-  const handleDownloadExcel = async () => {
-    setIsDownloadingExcel(true);
-    try {
-      await dowloadExcel();
-    } catch (error) {
-      console.error("Error al descargar Excel", error);
-    } finally {
-      setIsDownloadingExcel(false);
-    }
-  };
+  // Estado local para capturar si el componente hijo está descargando
+  const [anyDownloadPending, setAnyDownloadPending] = useState(false);
 
   const handleCreateCut = (data: { fechaCorte: string }) => {
     createCut.mutate(data.fechaCorte);
   };
-
-  // Si cualquiera de las dos descargas está activa
-  const anyDownloadPending = isDownloadingTxt || isDownloadingExcel;
 
   return (
     <div className="max-w-4xl mx-auto p-4">
@@ -67,7 +39,7 @@ const CutsPage = () => {
             </div>
 
             {/* Grid de información resumida */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700/50">
                 <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">
                   Fecha de Corte
@@ -80,7 +52,6 @@ const CutsPage = () => {
                   Total Registros
                 </p>
                 <p className="text-xl font-semibold text-white">
-                  {/* Agregamos || 0 por seguridad */}
                   {(result.data.totalRegistros || 0).toLocaleString()}
                 </p>
               </div>
@@ -96,7 +67,7 @@ const CutsPage = () => {
               </div>
             </div>
 
-            {/* Alerta de procesamiento pesado para el usuario */}
+            {/* Alerta de procesamiento pesado */}
             {anyDownloadPending && (
               <div className="flex items-start gap-3 bg-blue-950/40 border border-blue-800/60 p-3 rounded-lg mb-6 text-blue-400 text-xs animate-pulse">
                 <BiInfoCircle className="text-base shrink-0 mt-0.5" />
@@ -104,16 +75,17 @@ const CutsPage = () => {
                   <span className="font-semibold block mb-0.5">
                     Generando archivo en el navegador
                   </span>
-                  Por favor espere. Al ser {result.data.totalRegistros} registros, el navegador
-                  puede demorar unos segundos en estructurar el archivo binario antes de mostrar la
-                  ventana de guardado.
+                  Por favor espere. Al ser {(result.data.totalRegistros || 0).toLocaleString()}{" "}
+                  registros, el navegador puede demorar unos segundos en estructurar el archivo
+                  binario antes de mostrar la ventana de guardado.
                 </div>
               </div>
             )}
 
             {/* BOTONES DE DESCARGA */}
             <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-800">
-              <DownloadButtons variant="full" />
+              {/* Le pasamos la función setAnyDownloadPending para escuchar sus cambios de estado */}
+              <DownloadButtons variant="full" onLoadingChange={setAnyDownloadPending} />
             </div>
           </div>
         </div>

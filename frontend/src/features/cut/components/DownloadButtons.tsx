@@ -5,44 +5,48 @@ import { dowloadExcel, dowloadTxt } from "../api/cut.api";
 
 type DownloadButtonsProps = {
   variant?: "compact" | "full";
+  onLoadingChange?: (isLoading: boolean) => void;
 };
 
-export const DownloadButtons = ({ variant = "full" }: DownloadButtonsProps) => {
-  // Estados para controlar el feedback de los botones de descarga
+export const DownloadButtons = ({ variant = "full", onLoadingChange }: DownloadButtonsProps) => {
   const [isDownloadingTxt, setIsDownloadingTxt] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
 
-  // Manejador para la descarga de TXT
+  const anyPending = isDownloadingTxt || isDownloadingExcel;
+
   const handleDownloadTxt = async () => {
     setIsDownloadingTxt(true);
+    if (onLoadingChange) onLoadingChange(true); // <-- Avisa que empezó a descargar
+
     try {
       await dowloadTxt();
     } catch (error) {
       console.error(error);
     } finally {
       setIsDownloadingTxt(false);
+      if (onLoadingChange) onLoadingChange(false); // <-- Avisa que terminó
     }
   };
 
-  // Manejador para la descarga de Excel
   const handleDownloadExcel = async () => {
     setIsDownloadingExcel(true);
+    if (onLoadingChange) onLoadingChange(true); // <-- Avisa que empezó a descargar
+
     try {
       await dowloadExcel();
     } catch (error) {
       console.error(error);
     } finally {
       setIsDownloadingExcel(false);
+      if (onLoadingChange) onLoadingChange(false); // <-- Avisa que terminó
     }
   };
 
-  // Si cualquiera de las dos descargas está activa
-  const anyPending = isDownloadingTxt || isDownloadingExcel;
   const isCompact = variant === "compact";
 
   return (
     <div
-      className={`flex items-center gap-2 ${isCompact ? "justify-end" : "pt-4  flex-wrap gap-3"}`}
+      className={`flex items-center gap-2 ${isCompact ? "justify-end" : "w-full flex-wrap gap-3"}`}
     >
       {/* BOTÓN TXT */}
       <button
