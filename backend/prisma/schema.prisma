@@ -59,10 +59,6 @@ model DeudaBanco {
   idParametro Int
   parametro   ParametrosCorte @relation(fields: [idParametro], references: [id], onDelete: Cascade)
 
-  // Identificación de la factura en el SIIM
-  idFacturaSiim Int
-  id_modulo     Int
-
   // Datos del cliente
   tipo          String @default("CO")
   contrapartida String
@@ -74,15 +70,18 @@ model DeudaBanco {
   nombreCliente String
   idCliente     String
 
-  // Montos por factura (calculados y redondeados individualmente)
-  montoNominal   Decimal @db.Decimal(10, 2)
-  montoInteres   Decimal @default(0) @db.Decimal(10, 2)
-  montoMora      Decimal @default(0) @db.Decimal(10, 2)
-  montoDescuento Decimal @default(0) @db.Decimal(10, 2) // siempre negativo
-  montoRecargo   Decimal @default(0) @db.Decimal(10, 2) // siempre positivo
-  totalFactura   Decimal @db.Decimal(10, 2)
+  // Identificación de la factura en el SIIM
+  idFacturaSiim Int
+  id_modulo     Int
+  fechaCreacion DateTime @db.Date
 
-  // --- NUEVOS CAMPOS: componentes originales del SQL (para auditoría y cálculos futuros) ---
+  // Montos por factura (calculados y redondeados individualmente)
+  montoNominal    Decimal @db.Decimal(10, 2)
+  montoInteres    Decimal @default(0) @db.Decimal(10, 2)
+  montoMora       Decimal @default(0) @db.Decimal(10, 2)
+  montoDescuento  Decimal @default(0) @db.Decimal(10, 2) // siempre negativo
+  montoRecargo    Decimal @default(0) @db.Decimal(10, 2) // siempre positivo
+  totalFactura    Decimal @db.Decimal(10, 2)
   impuestoPredial Decimal @default(0) @db.Decimal(10, 2)
   exoneracion     Decimal @default(0) @db.Decimal(10, 2)
   cem             Decimal @default(0) @db.Decimal(10, 2) // solo rural, 0 para urbano/agua
