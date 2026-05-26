@@ -23,21 +23,22 @@ export interface RegistroDeuda {
   tipo: string;
   contrapartida: string;
   moneda: string;
-  valor: number;
   formaCobro: string;
+  referencia: string;
   ref1: string;
   ref2: string;
-  referencia: string;
   tipoId: string;
   numeroId: string;
   nombreCliente: string;
   idCliente: string;
-  totalDecimal: number;
+  fechaCreacion: string;
+  valor: number;
   montoNominal?: number;
   montoInteres?: number;
   montoMora?: number;
   montoDescuento?: number;
   montoRecargo?: number;
+  totalDecimal: number;
 }
 
 // ─── Resultado del proceso ────────────────────────────────────

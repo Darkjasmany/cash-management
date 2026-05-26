@@ -65,6 +65,13 @@ export interface Cortes {
   creadoEn: String;
 }
 
+export interface ResumenModuloDashboard {
+  id_modulo: number;
+  modulo: string;
+  totalClientes: number;
+  totalDeuda: number;
+}
+
 export async function proccessCutting(fechaCorte: string): Promise<ResultadoProceso> {
   try {
     const { data } = await api.post("/cut/procesar", { fechaCorte });
@@ -120,6 +127,15 @@ export async function dowloadExcel() {
     link.download = `deudas_${new Date().toISOString().split("T")[0].replace(/-/g, "")}.xlsx`;
     link.click();
     URL.revokeObjectURL(url);
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+export async function getDashboardStats(): Promise<ResumenModuloDashboard[]> {
+  try {
+    const { data } = await api.get("cut/cortes-por-modulos");
+    return data.data;
   } catch (error) {
     handleError(error);
   }

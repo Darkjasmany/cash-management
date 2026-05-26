@@ -1,34 +1,32 @@
-import { useCuttings } from "@/features/cut/hooks/useCut";
+import { CONFIG_MODULOS } from "@/data/modules";
+import { useCuttings, useDashboardStats } from "@/features/cut/hooks/useCut";
 import { Activity, ArrowRight, Calendar, DollarSign, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { data: cuts = [] } = useCuttings();
+  const { data: cuts = [], isLoading: cutsLoading } = useCuttings();
+  const { data: stats = [], isLoading: statsLoading } = useDashboardStats();
 
-  // 1. Conseguir el corte activo actual para mostrar métricas reales en el Dashboard
+  // Conseguir el corte activo actual para mostrar métricas reales en el Dashboard
   const activeCut = cuts.find(c => c.estado === "ACTIVO") || cuts[0];
 
-  // 2. Datos estáticos de ejemplo basados en tu lógica de negocio (SIIM)
-  // Lo ideal en el futuro es que tu API devuelva este desglose del corte activo
-  const categoriasData = [
-    {
-      name: "Predios Urbanos",
-      value: activeCut ? Math.round(Number(activeCut.totalRegistros) * 0.45) : 0,
-      color: "#0ea5e9",
-    }, // Sky
-    {
-      name: "Predios Rurales",
-      value: activeCut ? Math.round(Number(activeCut.totalRegistros) * 0.2) : 0,
-      color: "#10b981",
-    }, // Emerald
-    {
-      name: "Agua Potable",
-      value: activeCut ? Math.round(Number(activeCut.totalRegistros) * 0.35) : 0,
-      color: "#f59e0b",
-    }, // Amber
-  ];
+  const categoriasData = stats.map(stat => ({
+    name: stat.modulo,
+    value: stat.totalDeuda,
+    color: CONFIG_MODULOS[stat.id_modulo]?.color || "#64748b",
+  }));
+
+  // Si las peticiones de cortes o estadísticas están cargando, mostrar un estado de carga centralizado
+  if (statsLoading || cutsLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-24 min-h-[60vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500 mb-3"></div>
+        <p className="text-slate-400 text-sm font-medium">Sincronizando métricas con el SIIM...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto p-4 animate-in fade-in duration-500">
@@ -111,7 +109,7 @@ export default function Dashboard() {
           </div>
 
           <div className="h-56 w-full mt-4 flex items-center justify-center">
-            {activeCut ? (
+            {categoriasData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
