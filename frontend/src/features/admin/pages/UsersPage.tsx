@@ -63,8 +63,7 @@ const UsersPage = () => {
         </div>
         <button
           onClick={() => setModalMode("create")}
-          className="bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium
-                     px-4 py-2 rounded-lg transition"
+          className="bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition cursor-pointer"
         >
           + Nuevo usuario
         </button>
@@ -148,8 +147,7 @@ const UsersPage = () => {
                           setSelectedUser(user);
                           setModalMode("edit");
                         }}
-                        className="text-xs px-3 py-1.5 rounded-md bg-slate-800
-                                   hover:bg-slate-700 text-slate-300 transition"
+                        className="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
                       >
                         Editar
                       </button>
@@ -158,15 +156,13 @@ const UsersPage = () => {
                           setSelectedUser(user);
                           setModalMode("password");
                         }}
-                        className="text-xs px-3 py-1.5 rounded-md bg-slate-800
-                                   hover:bg-slate-700 text-amber-400 transition"
+                        className="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-amber-400 transition"
                       >
                         Contraseña
                       </button>
                       <button
                         onClick={() => handleDelete(user)}
-                        className="text-xs px-3 py-1.5 rounded-md bg-red-900/30
-                                   hover:bg-red-900/50 text-red-400 transition"
+                        className="text-xs px-3 py-1.5 rounded-md bg-red-900/30 hover:bg-red-900/50 text-red-400 transition"
                       >
                         Eliminar
                       </button>
@@ -220,24 +216,20 @@ const UsersPage = () => {
               placeholder="Mínimo 8 caracteres"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg bg-slate-800 border
-                         border-slate-700 text-white text-sm
-                         focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="w-full h-10 px-3 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </div>
           <div className="flex gap-3">
             <button
               onClick={handleClose}
-              className="flex-1 h-10 rounded-lg border border-slate-700
-                         text-slate-400 hover:bg-slate-800 transition text-sm"
+              className="flex-1 h-10 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 transition text-sm"
             >
               Cancelar
             </button>
             <button
               onClick={handleChangePassword}
               disabled={newPassword.length < 8 || changePassword.isPending}
-              className="flex-1 h-10 rounded-lg bg-amber-600 hover:bg-amber-500
-                         disabled:opacity-50 text-white font-medium transition text-sm"
+              className="flex-1 h-10 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-medium transition text-sm"
             >
               {changePassword.isPending ? "Actualizando..." : "Actualizar"}
             </button>
