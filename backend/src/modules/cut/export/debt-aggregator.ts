@@ -33,7 +33,7 @@ export class DebtAggregator {
   static async getAggregated(idParametro: number): Promise<GrupoArchivo[]> {
     const filas = await prisma.deudaBanco.findMany({
       where: { idParametro },
-      orderBy: [{ nombreCliente: "asc" }],
+      orderBy: [{ nombreCliente: "asc" }, { contrapartida: "asc" }, { fechaCreacion: "asc" }],
     });
 
     const mapa = new Map<string, GrupoArchivo>();
@@ -89,22 +89,29 @@ export class DebtAggregator {
       grupos.push(g);
     }
 
-    return grupos.sort((a, b) => a.nombreCliente.localeCompare(b.nombreCliente));
+    return grupos.sort((a, b) => {
+      const cmp = a.nombreCliente.localeCompare(b.nombreCliente);
+      if (cmp !== 0) return cmp;
+      return a.contrapartida.localeCompare(b.contrapartida);
+    });
   }
 
   static async getDetailed(idParametro: number): Promise<DeudaBanco[]> {
     return prisma.deudaBanco.findMany({
       where: { idParametro },
-      orderBy: [{ nombreCliente: "asc" }, { idFacturaSiim: "asc" }],
+      orderBy: [{ nombreCliente: "asc" }, { contrapartida: "asc" }, { fechaCreacion: "asc" }],
     });
   }
 
   static construirReferencia(g: GrupoArchivo): string {
     const periodos = [...g.periodos].sort().join(" ");
+    let ref: string;
     if (g.id_modulo === MODULO_CATASTRO_URBANO)
-      return `Catastro urbano anios ${periodos}`;
-    if (g.id_modulo === MODULO_CATASTRO_RURAL)
-      return `Catastro rural anios ${periodos}`;
-    return `${g.refBaseAgua} Emisiones ${periodos}`;
+      ref = `Catastro urbano anios ${periodos}`;
+    else if (g.id_modulo === MODULO_CATASTRO_RURAL)
+      ref = `Catastro rural anios ${periodos}`;
+    else
+      ref = `${g.refBaseAgua} Emisiones ${periodos}`;
+    return ref.replace(/:/g, "").replace(/ñ/g, "n").replace(/Ñ/g, "N");
   }
 }

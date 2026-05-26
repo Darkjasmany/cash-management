@@ -139,7 +139,7 @@ SELECT * FROM (
       AND f."idPropietarioEmision" NOT IN (SELECT id_cliente FROM clientes_en_coactiva)
     GROUP BY f.id, c.id, ab.id, ae.emision
 ) AS facturas
-ORDER BY nombre_cliente, fecha_creacion ASC;
+ORDER BY nombre_cliente, contrapartida, fecha_creacion ASC;
 ;`;
 };
 

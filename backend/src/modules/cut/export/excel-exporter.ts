@@ -203,7 +203,7 @@ export class ExcelExporter {
         desc: parseFloat(d.montoDescuento.toString()),
         rec: parseFloat(d.montoRecargo.toString()),
         total: parseFloat(d.totalFactura.toString()),
-        ref: d.referencia,
+        ref: d.referencia.replace(/:/g, "").replace(/ñ/g, "n").replace(/Ñ/g, "N"),
         tipoId: d.tipoId,
       });
 

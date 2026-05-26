@@ -59,7 +59,7 @@ export class TxtExporter {
         "REC",
         "",
         "",
-        d.referencia,
+        d.referencia.replace(/:/g, "").replace(/ñ/g, "n").replace(/Ñ/g, "N"),
         d.tipoId,
         d.numeroId,
         nombreSanitizado,
