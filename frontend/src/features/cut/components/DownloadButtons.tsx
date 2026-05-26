@@ -11,34 +11,35 @@ type DownloadButtonsProps = {
 export const DownloadButtons = ({ variant = "full", onLoadingChange }: DownloadButtonsProps) => {
   const [isDownloadingTxt, setIsDownloadingTxt] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
+  const [consolidar, setConsolidar] = useState(false);
 
   const anyPending = isDownloadingTxt || isDownloadingExcel;
 
   const handleDownloadTxt = async () => {
     setIsDownloadingTxt(true);
-    if (onLoadingChange) onLoadingChange(true); // <-- Avisa que empezó a descargar
+    if (onLoadingChange) onLoadingChange(true);
 
     try {
-      await dowloadTxt();
+      await dowloadTxt(consolidar);
     } catch (error) {
       console.error(error);
     } finally {
       setIsDownloadingTxt(false);
-      if (onLoadingChange) onLoadingChange(false); // <-- Avisa que terminó
+      if (onLoadingChange) onLoadingChange(false);
     }
   };
 
   const handleDownloadExcel = async () => {
     setIsDownloadingExcel(true);
-    if (onLoadingChange) onLoadingChange(true); // <-- Avisa que empezó a descargar
+    if (onLoadingChange) onLoadingChange(true);
 
     try {
-      await dowloadExcel();
+      await dowloadExcel(consolidar);
     } catch (error) {
       console.error(error);
     } finally {
       setIsDownloadingExcel(false);
-      if (onLoadingChange) onLoadingChange(false); // <-- Avisa que terminó
+      if (onLoadingChange) onLoadingChange(false);
     }
   };
 
@@ -48,7 +49,16 @@ export const DownloadButtons = ({ variant = "full", onLoadingChange }: DownloadB
     <div
       className={`flex items-center gap-2 ${isCompact ? "justify-end" : "w-full flex-wrap gap-3"}`}
     >
-      {/* BOTÓN TXT */}
+      <label className="flex items-center gap-2 text-slate-300 text-sm cursor-pointer select-none mr-auto">
+        <input
+          type="checkbox"
+          checked={consolidar}
+          onChange={(e) => setConsolidar(e.target.checked)}
+          className="rounded bg-slate-800 border-slate-600 text-sky-500 focus:ring-sky-500/50"
+        />
+        Consolidar deuda (agrupa por cliente y módulo)
+      </label>
+
       <button
         onClick={handleDownloadTxt}
         disabled={anyPending}
@@ -66,7 +76,6 @@ export const DownloadButtons = ({ variant = "full", onLoadingChange }: DownloadB
         {isDownloadingTxt ? (isCompact ? "TXT..." : "Generando TXT...") : "Descargar TXT"}
       </button>
 
-      {/* BOTÓN EXCEL */}
       <button
         onClick={handleDownloadExcel}
         disabled={anyPending}

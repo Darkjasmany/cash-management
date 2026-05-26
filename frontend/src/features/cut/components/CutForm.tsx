@@ -42,7 +42,7 @@ const CutForm = ({ isPending, onSubmit }: Props) => {
         <button
           type="submit"
           disabled={isPending}
-          className="h-10 px-4 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition"
+          className="h-10 px-4 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition cursor-pointer"
         >
           {isPending ? "Procesando..." : "Procesar"}
         </button>

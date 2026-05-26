@@ -99,24 +99,29 @@ export async function getCuttings(): Promise<Cortes[]> {
   }
 }
 
-export async function dowloadTxt() {
+export async function dowloadTxt(consolidado = false) {
   try {
-    // {responseType: 'blob'} en axios sirve para indicarle a la librería que la respuesta del servidor debe tratarse como un objeto Blob (Binary Large Object) en lugar del JSON predeterminado. Esto es indispensable para descargar archivos, manejar imágenes, PDFs o cualquier dato binario recibido de una API
-    const response = await api.get("/cut/descargar/txt", { responseType: "blob" });
+    const response = await api.get("/cut/descargar/txt", {
+      params: { consolidado },
+      responseType: "blob",
+    });
     const url = URL.createObjectURL(new Blob([response.data], { type: "text/plain" }));
-    const link = document.createElement("a"); // creamos un enlace invisible en la memoria
-    link.href = url; //Le asignamos la dirección de la memoria RAM que creamos arriba.
-    link.download = `deudas_${new Date().toISOString().split("T")[0].replace(/-/g, "")}.txt`; // Le dice al navegador: "No abras este archivo en una pestaña nueva, descárgalo con este nombre específico"
-    link.click(); //Simulamos el dedo del usuario haciendo clic. Esto dispara la ventana de "Guardar como"
-    URL.revokeObjectURL(url); //Ya terminamos, puedes liberar esa memoria y olvidar esa dirección temporal
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `deudas_${new Date().toISOString().split("T")[0].replace(/-/g, "")}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
   } catch (error) {
     handleError(error);
   }
 }
 
-export async function dowloadExcel() {
+export async function dowloadExcel(consolidado = false) {
   try {
-    const response = await api.get("/cut/descargar/xlsx", { responseType: "blob" });
+    const response = await api.get("/cut/descargar/xlsx", {
+      params: { consolidado },
+      responseType: "blob",
+    });
     const url = URL.createObjectURL(
       new Blob([response.data], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
