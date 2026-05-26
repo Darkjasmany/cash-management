@@ -104,7 +104,7 @@ export class DebtAggregator {
   }
 
   static construirReferencia(g: GrupoArchivo): string {
-    const periodos = [...g.periodos].sort().join(" ");
+    const periodos = DebtAggregator.formatearPeriodos([...g.periodos].sort());
     let ref: string;
     if (g.id_modulo === MODULO_CATASTRO_URBANO)
       ref = `Catastro urbano anios ${periodos}`;
@@ -113,5 +113,14 @@ export class DebtAggregator {
     else
       ref = `${g.refBaseAgua} Emisiones ${periodos}`;
     return ref.replace(/:/g, "").replace(/ñ/g, "n").replace(/Ñ/g, "N");
+  }
+
+  private static formatearPeriodos(lista: string[]): string {
+    if (lista.length === 0) return "";
+    if (lista.length === 1) return lista[0];
+    const nums = lista.map(Number);
+    const consecutivo = nums.every((n, i) => i === 0 || n === nums[i - 1] + 1);
+    if (consecutivo) return `${lista[0]} a ${lista[lista.length - 1]}`;
+    return lista.join(" ");
   }
 }
