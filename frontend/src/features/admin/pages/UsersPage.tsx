@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { AdminUser } from "../api/admin.api";
-import type { CreateUserFormValues, EditUserFormValues } from "../components/UserForm";
 import UserForm from "../components/UserForm";
 import UserModal from "../components/UserModal";
 import {
@@ -11,6 +10,7 @@ import {
   useDeleteUserDefinite,
   useUpdateUser,
 } from "../hooks/useAdminUsers";
+import type { CreateUserFormValues, EditUserFormValues } from "../schema/Admin.schema";
 
 type ModalMode = "create" | "edit" | "password" | null;
 
@@ -55,7 +55,7 @@ const UsersPage = () => {
     deleteUser.mutate(user.id);
   };
   return (
-    <div>
+    <div className="max-w-8xl mx-auto p-4 ">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-white">Usuarios</h1>
