@@ -46,7 +46,6 @@ interface FacturaGuardada {
   numeroId: string;
   nombreCliente: string;
   idCliente: string;
-  fechaCreacion: Date;
   montoNominal: number;
   montoInteres: number;
   montoMora: number;
@@ -210,7 +209,7 @@ export class CutService {
       const totalFactura =
         Math.round((totalNominal + descuento + recargo + interes + mora) * 100) / 100;
 
-      // ---- 6. Guardar ----
+      // ---- 6. Guardar (incluyendo los nuevos campos) ----
       facturas.push({
         idFacturaSiim: Number(fila.id_factura),
         id_modulo: Number(fila.id_modulo),
@@ -223,7 +222,6 @@ export class CutService {
         numeroId: fila.cedula,
         nombreCliente: fila.nombre_cliente,
         idCliente: String(fila.id_cliente),
-        fechaCreacion: new Date(fila.fecha_creacion),
         montoNominal: totalNominal,
         montoInteres: interes,
         montoMora: mora,
@@ -255,7 +253,6 @@ export class CutService {
             numeroId: f.numeroId,
             nombreCliente: f.nombreCliente,
             idCliente: f.idCliente,
-            fechaCreacion: f.fechaCreacion,
             montoNominal: f.montoNominal,
             montoInteres: f.montoInteres,
             montoMora: f.montoMora,
