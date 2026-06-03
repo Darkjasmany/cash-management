@@ -210,22 +210,6 @@ export class CutService {
       });
     }
 
-    // ── Agua: la última emisión por contrapartida no genera interés (mes vencido) ──
-    const ultimaAgua = new Map<string, number>(); // contrapartida → index en facturas[]
-    facturas.forEach((f, idx) => {
-      if (f.id_modulo === MODULO_AGUA_POTABLE) {
-        const existente = ultimaAgua.get(f.contrapartida);
-        if (existente === undefined || f.fechaCreacion > facturas[existente].fechaCreacion) {
-          ultimaAgua.set(f.contrapartida, idx);
-        }
-      }
-    });
-    for (const idx of ultimaAgua.values()) {
-      const f = facturas[idx];
-      f.totalFactura = Math.round((f.totalFactura - f.montoInteres) * 100) / 100;
-      f.montoInteres = 0;
-    }
-
     console.log(`💾 Insertando ${facturas.length} facturas...`);
     if (facturas.length > 0) {
       const chunkSize = 5000;
