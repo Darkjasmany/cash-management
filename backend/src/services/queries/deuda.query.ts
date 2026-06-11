@@ -53,7 +53,7 @@ SELECT * FROM (
       AND fd."fechaCreacion" <= '${fechaStr}'
       AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '${fechaStr}'))
       AND (f.estado = 1 OR (f.estado = 0 AND f."fechaEliminacion" > '${fechaStr}'))
-      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000','000000000','0000000000','0000000000000000000','9999999999999', '0999999996', '09999999999999', '0999999999', '9999999999') AND LENGTH(TRIM(c.cedula)) >= 10
+      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000','000000000','0000000000','0000000000000000000','00000000000000','9999999999999','0999999996','09999999999999','0999999999', '9999999999', '99999999999', '0999999999999999', '9999999999999999999') AND LENGTH(TRIM(c.cedula)) >= 10
       -- Excluir si el cliente tiene coactiva en cualquier parte del sistema
       AND f."idPropietarioEmision" NOT IN (SELECT id_cliente FROM clientes_en_coactiva)
     GROUP BY f.id, c.id, la.id_predio
@@ -98,7 +98,7 @@ SELECT * FROM (
       AND fd."fechaCreacion" <= '${fechaStr}'
       AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '${fechaStr}'))
       AND (f.estado = 1 OR (f.estado = 0 AND f."fechaEliminacion" > '${fechaStr}'))
-      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000','000000000','0000000000','9999999999999') AND LENGTH(TRIM(c.cedula)) >= 10
+      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000','000000000','0000000000','0000000000000000000','00000000000000','9999999999999','0999999996','09999999999999','0999999999', '9999999999','99999999999','0999999999999999','9999999999999999999') AND LENGTH(TRIM(c.cedula)) >= 10
       -- Excluir si el cliente tiene coactiva en cualquier parte del sistema
       AND f."idPropietarioEmision" NOT IN (SELECT id_cliente FROM clientes_en_coactiva)
     GROUP BY f.id, c.id, lar.id_predio_rural
@@ -134,7 +134,7 @@ SELECT * FROM (
       AND fd."fechaCreacion" <= '${fechaStr}'
       AND (f.pagado = 0 OR (f.pagado = 1 AND f."fechaCobro" > '${fechaStr}'))
       AND (f.estado = 1 OR (f.estado = 0 AND f."fechaEliminacion" > '${fechaStr}'))
-      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000','000000000','0000000000','9999999999999') AND LENGTH(TRIM(c.cedula)) >= 10
+      AND c.cedula IS NOT NULL AND TRIM(c.cedula) NOT IN ('000','000000000','0000000000','0000000000000000000', '00000000000000','9999999999999', '0999999996', '09999999999999', '0999999999', '9999999999', '99999999999', '0999999999999999', '9999999999999999999') AND LENGTH(TRIM(c.cedula)) >= 10
       -- Excluir si el cliente tiene coactiva en cualquier parte del sistema
       AND f."idPropietarioEmision" NOT IN (SELECT id_cliente FROM clientes_en_coactiva)
     GROUP BY f.id, c.id, ab.id, ae.emision

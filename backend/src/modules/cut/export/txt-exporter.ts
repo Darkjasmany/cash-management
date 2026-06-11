@@ -18,10 +18,14 @@ export class TxtExporter {
     const grupos = await DebtAggregator.getAggregated(idParametro);
     if (grupos.length === 0) throw new Error("No hay datos en el corte activo.");
 
-    const lineas = grupos.map((g) => {
+    const lineas = grupos.map(g => {
       const nombreSanitizado = (g.nombreCliente || "")
         .replace(/Ñ/g, "N")
-        .replace(/ñ/g, "n");
+        .replace(/ñ/g, "n")
+        .replace(/[.,()+'\-]/g, "") // El guion (-) va al final para que no se confunda con un rango
+        .trim()
+        .substring(0, 30)
+        .trim();
 
       return [
         "CO",
@@ -45,11 +49,15 @@ export class TxtExporter {
     const deudas = await DebtAggregator.getDetailed(idParametro);
     if (deudas.length === 0) throw new Error("No hay datos en el corte activo.");
 
-    const lineas = deudas.map((d) => {
+    const lineas = deudas.map(d => {
       const centavos = Math.round(parseFloat(d.totalFactura.toString()) * 100);
       const nombreSanitizado = (d.nombreCliente || "")
         .replace(/Ñ/g, "N")
-        .replace(/ñ/g, "n");
+        .replace(/ñ/g, "n")
+        .replace(/[.,()+'\-]/g, "") // El guion (-) va al final para que no se confunda con un rango
+        .trim()
+        .substring(0, 30)
+        .trim();
 
       return [
         "CO",

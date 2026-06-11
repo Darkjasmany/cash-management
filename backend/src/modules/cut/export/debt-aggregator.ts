@@ -60,8 +60,7 @@ export class DebtAggregator {
       if (existing) {
         existing.totalExacto += totalFact;
         if (periodo) existing.periodos.add(periodo);
-        if (!esCatastro && refBaseAgua && !existing.refBaseAgua)
-          existing.refBaseAgua = refBaseAgua;
+        if (!esCatastro && refBaseAgua && !existing.refBaseAgua) existing.refBaseAgua = refBaseAgua;
       } else {
         mapa.set(clave, {
           contrapartida: f.contrapartida,
@@ -106,13 +105,10 @@ export class DebtAggregator {
   static construirReferencia(g: GrupoArchivo): string {
     const periodos = DebtAggregator.formatearPeriodos([...g.periodos].sort());
     let ref: string;
-    if (g.id_modulo === MODULO_CATASTRO_URBANO)
-      ref = `Catastro urbano anios ${periodos}`;
-    else if (g.id_modulo === MODULO_CATASTRO_RURAL)
-      ref = `Catastro rural anios ${periodos}`;
-    else
-      ref = `${g.refBaseAgua} Emisiones ${periodos}`;
-    return ref.replace(/:/g, "").replace(/ñ/g, "n").replace(/Ñ/g, "N");
+    if (g.id_modulo === MODULO_CATASTRO_URBANO) ref = `Catastro urbano anios ${periodos}`;
+    else if (g.id_modulo === MODULO_CATASTRO_RURAL) ref = `Catastro rural anios ${periodos}`;
+    else ref = `${g.refBaseAgua} Emisiones ${periodos}`;
+    return ref.replace(/Ñ/g, "N").replace(/ñ/g, "n").replace(/[:.]/g, "");
   }
 
   private static formatearPeriodos(lista: string[]): string {
