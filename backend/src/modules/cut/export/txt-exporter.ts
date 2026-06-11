@@ -36,7 +36,7 @@ export class TxtExporter {
         "",
         "",
         DebtAggregator.construirReferencia(g),
-        g.tipoId,
+        "N", // g.tipoId,
         g.numeroId,
         nombreSanitizado,
       ].join("\t");
@@ -68,7 +68,7 @@ export class TxtExporter {
         "",
         "",
         d.referencia.replace(/:/g, "").replace(/ñ/g, "n").replace(/Ñ/g, "N"),
-        d.tipoId,
+        "N", // d.tipoId,
         d.numeroId,
         nombreSanitizado,
       ].join("\t");
