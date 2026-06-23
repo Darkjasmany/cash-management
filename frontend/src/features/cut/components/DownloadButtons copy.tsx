@@ -12,7 +12,6 @@ export const DownloadButtons = ({ variant = "full", onLoadingChange }: DownloadB
   const [isDownloadingTxt, setIsDownloadingTxt] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
   const [consolidar, setConsolidar] = useState(false);
-  const [detalle, setDetalle] = useState(false);
 
   const anyPending = isDownloadingTxt || isDownloadingExcel;
 
@@ -21,7 +20,7 @@ export const DownloadButtons = ({ variant = "full", onLoadingChange }: DownloadB
     if (onLoadingChange) onLoadingChange(true);
 
     try {
-      await dowloadTxt(detalle);
+      await dowloadTxt(consolidar);
     } catch (error) {
       console.error(error);
     } finally {
@@ -35,7 +34,7 @@ export const DownloadButtons = ({ variant = "full", onLoadingChange }: DownloadB
     if (onLoadingChange) onLoadingChange(true);
 
     try {
-      await dowloadExcel(detalle);
+      await dowloadExcel(consolidar);
     } catch (error) {
       console.error(error);
     } finally {
@@ -53,11 +52,11 @@ export const DownloadButtons = ({ variant = "full", onLoadingChange }: DownloadB
       <label className="flex items-center gap-2 text-slate-300 text-sm cursor-pointer select-none mr-auto">
         <input
           type="checkbox"
-          checked={detalle}
-          onChange={e => setDetalle(e.target.checked)}
+          checked={consolidar}
+          onChange={(e) => setConsolidar(e.target.checked)}
           className="rounded bg-slate-800 border-slate-600 text-sky-500 focus:ring-sky-500/50"
         />
-        Detalle de deuda (Línea individual por cliente, módulo y año)
+        Consolidar deuda (agrupa por cliente y módulo)
       </label>
 
       <button

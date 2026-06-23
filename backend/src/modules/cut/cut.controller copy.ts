@@ -1,7 +1,7 @@
 import { AppError } from "@/middlewares/error.middleware";
 import type { NextFunction, Request, Response } from "express";
 import { CutService } from "./cut.service";
-import { ExcelExporter, TxtExporter } from "./export";
+import { TxtExporter, ExcelExporter } from "./export";
 
 export class CutController {
   static process = async (req: Request, res: Response, next: NextFunction) => {
@@ -44,8 +44,8 @@ export class CutController {
 
   static downloadTxt = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const detalle = req.query.detalle === "true";
-      const content = await TxtExporter.generate(detalle);
+      const consolidado = req.query.consolidado === "true";
+      const content = await TxtExporter.generate(consolidado);
       const date = new Date().toISOString().split("T")[0].replace(/-/g, "");
       const fileName = `deudas_${date}.txt`;
 
@@ -59,8 +59,8 @@ export class CutController {
 
   static downloadExcel = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const detalle = req.query.detalle === "true";
-      const buffer = await ExcelExporter.generate(detalle);
+      const consolidado = req.query.consolidado === "true";
+      const buffer = await ExcelExporter.generate(consolidado);
       const date = new Date().toISOString().split("T")[0].replace(/-/g, "");
       const fileName = `deudas_${date}.xlsx`;
 

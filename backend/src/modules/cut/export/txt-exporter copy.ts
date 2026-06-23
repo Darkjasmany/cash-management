@@ -2,16 +2,16 @@ import { prisma } from "@/lib/db";
 import { DebtAggregator } from "./debt-aggregator";
 
 export class TxtExporter {
-  static async generate(detalle: boolean): Promise<string> {
+  static async generate(consolidado: boolean): Promise<string> {
     const corte = await prisma.parametrosCorte.findFirst({
       where: { estado: "ACTIVO" },
     });
     if (!corte) throw new Error("No hay corte activo.");
 
-    if (detalle) {
-      return this.generateDetailed(corte.id);
+    if (consolidado) {
+      return this.generateConsolidated(corte.id);
     }
-    return this.generateConsolidated(corte.id);
+    return this.generateDetailed(corte.id);
   }
 
   private static async generateConsolidated(idParametro: number): Promise<string> {

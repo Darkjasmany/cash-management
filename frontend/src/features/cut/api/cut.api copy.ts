@@ -99,10 +99,10 @@ export async function getCuttings(): Promise<Cortes[]> {
   }
 }
 
-export async function dowloadTxt(detalle = false) {
+export async function dowloadTxt(consolidado = false) {
   try {
     const response = await api.get("/cut/descargar/txt", {
-      params: { detalle },
+      params: { consolidado },
       responseType: "blob",
     });
     const url = URL.createObjectURL(new Blob([response.data], { type: "text/plain" }));
@@ -116,10 +116,10 @@ export async function dowloadTxt(detalle = false) {
   }
 }
 
-export async function dowloadExcel(detalle = false) {
+export async function dowloadExcel(consolidado = false) {
   try {
     const response = await api.get("/cut/descargar/xlsx", {
-      params: { detalle },
+      params: { consolidado },
       responseType: "blob",
     });
     const url = URL.createObjectURL(

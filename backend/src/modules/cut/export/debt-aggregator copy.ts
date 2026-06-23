@@ -20,20 +20,13 @@ interface GrupoArchivo {
 }
 
 function extraerEmision(referencia: string): string {
-  // const match = referencia.match(/Emisión:\s*(\S+)/);
-  const match = referencia.match(/Emisi[oó]n:?\s*(\S+)/i);
+  const match = referencia.match(/Emisión:\s*(\S+)/);
   return match ? match[1] : "";
 }
 
 function extraerRefBaseAgua(referencia: string): string {
-  // const idx = referencia.indexOf(" Emisión:");
-  // return idx > 0 ? referencia.substring(0, idx) : referencia;
-  const match = referencia.match(/Emisi[oó]n:?\s*(\S+)/i);
-  if (match && match.index !== undefined) {
-    return referencia.substring(0, match.index).trim();
-  }
-  // Si no encuentra la palabra "Emision", devuelve un texto vacío en lugar de la referencia entera
-  return referencia ?? "";
+  const idx = referencia.indexOf(" Emisión:");
+  return idx > 0 ? referencia.substring(0, idx) : referencia;
 }
 
 export class DebtAggregator {
@@ -114,7 +107,7 @@ export class DebtAggregator {
     let ref: string;
     if (g.id_modulo === MODULO_CATASTRO_URBANO) ref = `Catastro urbano anios ${periodos}`;
     else if (g.id_modulo === MODULO_CATASTRO_RURAL) ref = `Catastro rural anios ${periodos}`;
-    else ref = `${g.refBaseAgua} Emisiones: ${periodos}`;
+    else ref = `${g.refBaseAgua} E: ${periodos}`;
     return ref.replace(/Ñ/g, "N").replace(/ñ/g, "n").replace(/[:.]/g, "");
   }
 

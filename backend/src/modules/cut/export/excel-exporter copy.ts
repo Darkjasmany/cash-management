@@ -1,6 +1,6 @@
+import ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
 import type { DeudaBanco } from "@prisma/client";
-import ExcelJS from "exceljs";
 import { DebtAggregator } from "./debt-aggregator";
 
 const USD_FORMAT = '"$"#,##0.00';
@@ -20,7 +20,7 @@ interface GrupoArchivo {
 }
 
 export class ExcelExporter {
-  static async generate(detalle: boolean): Promise<Buffer> {
+  static async generate(consolidado: boolean): Promise<Buffer> {
     const corte = await prisma.parametrosCorte.findFirst({
       where: { estado: "ACTIVO" },
     });
@@ -32,14 +32,16 @@ export class ExcelExporter {
 
     const encabezado = `${corte.fechaCorte.toISOString().split("T")[0]}  |  ${corte.nombreUsuario}  |  ${new Date().toLocaleString("es-EC")}`;
 
-    if (detalle) {
-      const deudas = await DebtAggregator.getDetailed(corte.id);
-      if (deudas.length === 0) throw new Error("No hay datos en el corte activo.");
-      this.buildDetalleSheet(wb, deudas, encabezado);
-    } else {
+    if (consolidado) {
       const grupos = await DebtAggregator.getAggregated(corte.id);
-      if (grupos.length === 0) throw new Error("No hay datos en el corte activo.");
+      if (grupos.length === 0)
+        throw new Error("No hay datos en el corte activo.");
       this.buildConsolidadoSheet(wb, grupos, encabezado);
+    } else {
+      const deudas = await DebtAggregator.getDetailed(corte.id);
+      if (deudas.length === 0)
+        throw new Error("No hay datos en el corte activo.");
+      this.buildDetalleSheet(wb, deudas, encabezado);
     }
 
     return Buffer.from(await wb.xlsx.writeBuffer());
@@ -48,7 +50,7 @@ export class ExcelExporter {
   private static buildConsolidadoSheet(
     wb: ExcelJS.Workbook,
     grupos: GrupoArchivo[],
-    encabezado: string
+    encabezado: string,
   ) {
     const ws = wb.addWorksheet("Consolidado Banco", {
       pageSetup: { paperSize: 9, orientation: "landscape" },
@@ -80,7 +82,7 @@ export class ExcelExporter {
     ];
 
     const headerRow = ws.getRow(2);
-    headerRow.eachCell(c => {
+    headerRow.eachCell((c) => {
       c.fill = {
         type: "pattern",
         pattern: "solid",
@@ -108,7 +110,7 @@ export class ExcelExporter {
       });
 
       if (idx % 2 === 0) {
-        row.eachCell(cell => {
+        row.eachCell((cell) => {
           cell.fill = {
             type: "pattern",
             pattern: "solid",
@@ -127,7 +129,7 @@ export class ExcelExporter {
       contrapartida: `${grupos.length} registros`,
       totalUsd: grupos.reduce((a, g) => a + g.totalDecimal, 0),
     });
-    totalRow.eachCell(c => {
+    totalRow.eachCell((c) => {
       c.font = { bold: true };
       c.fill = {
         type: "pattern",
@@ -141,7 +143,11 @@ export class ExcelExporter {
     ws.views = [{ state: "frozen", ySplit: 2 }];
   }
 
-  private static buildDetalleSheet(wb: ExcelJS.Workbook, deudas: DeudaBanco[], encabezado: string) {
+  private static buildDetalleSheet(
+    wb: ExcelJS.Workbook,
+    deudas: DeudaBanco[],
+    encabezado: string,
+  ) {
     const ws = wb.addWorksheet("Detalle por Factura", {
       pageSetup: { paperSize: 9, orientation: "landscape" },
     });
@@ -173,7 +179,7 @@ export class ExcelExporter {
     ];
 
     const headerRow = ws.getRow(2);
-    headerRow.eachCell(c => {
+    headerRow.eachCell((c) => {
       c.fill = {
         type: "pattern",
         pattern: "solid",
@@ -202,7 +208,7 @@ export class ExcelExporter {
       });
 
       if (idx % 2 === 0) {
-        row.eachCell(cell => {
+        row.eachCell((cell) => {
           cell.fill = {
             type: "pattern",
             pattern: "solid",
@@ -211,7 +217,7 @@ export class ExcelExporter {
         });
       }
 
-      ["nominal", "interes", "mora", "desc", "rec", "total"].forEach(k => {
+      ["nominal", "interes", "mora", "desc", "rec", "total"].forEach((k) => {
         row.getCell(k).numFmt = USD_FORMAT;
       });
 
