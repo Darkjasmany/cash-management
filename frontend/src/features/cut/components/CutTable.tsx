@@ -1,12 +1,17 @@
 import { type Cortes } from "../api/cut.api";
 import { DownloadButtons } from "./DownloadButtons";
+import Pagination from "@/components/ui/Pagination";
 
 type Props = {
   cuts: Cortes[];
   isLoading: boolean;
+  page: number;
+  totalPages: number;
+  totalItems: number;
+  onPageChange: (page: number) => void;
 };
 
-const CutTable = ({ cuts, isLoading }: Props) => {
+const CutTable = ({ cuts, isLoading, page, totalPages, totalItems, onPageChange }: Props) => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 bg-slate-900/20 border border-slate-800/60 rounded-xl">
@@ -59,9 +64,9 @@ const CutTable = ({ cuts, isLoading }: Props) => {
 
               return (
                 <tr key={cut.id} className="hover:bg-slate-900/30 transition-colors group/row">
-                  {/* Índice */}
+                  {/* Índice numeración continua independiente de la página */}
                   <td className="py-3.5 px-4 text-slate-600 font-mono text-center text-xs">
-                    {index + 1}
+                    {(page - 1) * 10 + index + 1}
                   </td>
 
                   {/* Fecha */}
@@ -128,6 +133,14 @@ const CutTable = ({ cuts, isLoading }: Props) => {
           </tbody>
         </table>
       </div>
+
+      {/* Paginador */}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        onPageChange={onPageChange}
+      />
     </div>
   );
 };

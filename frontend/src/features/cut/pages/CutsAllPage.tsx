@@ -1,18 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiSearch } from "react-icons/fi";
 import CutTable from "../components/CutTable";
 import { useCuttings } from "../hooks/useCut";
 
+const PAGE_SIZE = 10;
+
 const CutsAllPage = () => {
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const { data: cuts = [], isLoading } = useCuttings();
 
+  // Filtrar por búsqueda
   const filtered = cuts.filter(
     c =>
       c.fechaCorte.includes(search) ||
       c.estado.toLowerCase().includes(search.toLowerCase()) ||
       (c.nombreUsuario && c.nombreUsuario.toLowerCase().includes(search.toLowerCase()))
   );
+
+  // Calcular paginación
+  const totalItems = filtered.length;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+  const paginatedCuts = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reiniciar a página 1 cuando cambia el filtro de búsqueda
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   return (
     <div className="max-w-8xl mx-auto p-4 animate-in fade-in duration-500">
@@ -42,9 +56,16 @@ const CutsAllPage = () => {
         </div>
       </div>
 
-      {/* Componente de la tabla */}
+      {/* Componente de la tabla con paginación */}
       <div className="mt-6">
-        <CutTable cuts={filtered} isLoading={isLoading} />
+        <CutTable
+          cuts={paginatedCuts}
+          isLoading={isLoading}
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setPage}
+        />
       </div>
     </div>
   );

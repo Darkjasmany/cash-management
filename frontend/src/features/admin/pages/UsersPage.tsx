@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { AdminUser } from "../api/admin.api";
 import UserForm from "../components/UserForm";
 import UserModal from "../components/UserModal";
+import Pagination from "@/components/ui/Pagination";
 import {
   useAdminUser,
   useChangePassword,
@@ -14,12 +15,19 @@ import type { CreateUserFormValues, EditUserFormValues } from "../schema/Admin.s
 
 type ModalMode = "create" | "edit" | "password" | null;
 
+const PAGE_SIZE = 10;
+
 const UsersPage = () => {
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [page, setPage] = useState(1);
 
   const { data: users = [], isLoading } = useAdminUser();
+
+  const totalItems = users.length;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+  const paginatedUsers = users.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const changePassword = useChangePassword();
@@ -75,43 +83,44 @@ const UsersPage = () => {
             Cargando usuarios...
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-800">
-                <th className="text-left py-3 px-4 text-slate-400 font-medium">Usuario</th>
-                <th className="text-left py-3 px-4 text-slate-400 font-medium">Rol</th>
-                <th className="text-left py-3 px-4 text-slate-400 font-medium">Estado</th>
-                <th className="text-left py-3 px-4 text-slate-400 font-medium">Creado</th>
-                <th className="text-right py-3 px-4 text-slate-400 font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(user => (
-                <tr
-                  key={user.id}
-                  className="border-b border-slate-800/50 hover:bg-slate-800/30 transition"
-                >
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-8 h-8 rounded-full bg-sky-900 flex items-center
+          <>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  <th className="text-left py-3 px-4 text-slate-400 font-medium">Usuario</th>
+                  <th className="text-left py-3 px-4 text-slate-400 font-medium">Rol</th>
+                  <th className="text-left py-3 px-4 text-slate-400 font-medium">Estado</th>
+                  <th className="text-left py-3 px-4 text-slate-400 font-medium">Creado</th>
+                  <th className="text-right py-3 px-4 text-slate-400 font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedUsers.map(user => (
+                  <tr
+                    key={user.id}
+                    className="border-b border-slate-800/50 hover:bg-slate-800/30 transition"
+                  >
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-full bg-sky-900 flex items-center
                                       justify-center text-xs text-sky-400 font-medium shrink-0"
-                      >
-                        {user.name
-                          .split(" ")
-                          .map(n => n[0])
-                          .join("")
-                          .slice(0, 2)}
+                        >
+                          {user.name
+                            .split(" ")
+                            .map(n => n[0])
+                            .join("")
+                            .slice(0, 2)}
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">{user.name}</p>
+                          <p className="text-slate-500 text-xs">{user.email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-white font-medium">{user.name}</p>
-                        <p className="text-slate-500 text-xs">{user.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`
                       text-xs px-2 py-1 rounded-md
                       ${
                         user.role === "ADMIN"
@@ -119,13 +128,13 @@ const UsersPage = () => {
                           : "bg-slate-800 text-slate-400"
                       }
                     `}
-                    >
-                      {user.role === "ADMIN" ? "Administrador" : "Organizador"}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`
+                      >
+                        {user.role === "ADMIN" ? "Administrador" : "Organizador"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`
                       text-xs px-2 py-1 rounded-md
                       ${
                         user.isActive
@@ -133,45 +142,53 @@ const UsersPage = () => {
                           : "bg-red-900/50 text-red-400"
                       }
                     `}
-                    >
-                      {user.isActive ? "Activo" : "Inactivo"}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-slate-400">
-                    {new Date(user.createdAt).toLocaleDateString("es-EC")}
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setModalMode("edit");
-                        }}
-                        className="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
                       >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setModalMode("password");
-                        }}
-                        className="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-amber-400 transition"
-                      >
-                        Contraseña
-                      </button>
-                      <button
-                        onClick={() => handleDelete(user)}
-                        className="text-xs px-3 py-1.5 rounded-md bg-red-900/30 hover:bg-red-900/50 text-red-400 transition"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        {user.isActive ? "Activo" : "Inactivo"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-slate-400">
+                      {new Date(user.createdAt).toLocaleDateString("es-EC")}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setModalMode("edit");
+                          }}
+                          className="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setModalMode("password");
+                          }}
+                          className="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-amber-400 transition"
+                        >
+                          Contraseña
+                        </button>
+                        <button
+                          onClick={() => handleDelete(user)}
+                          className="text-xs px-3 py-1.5 rounded-md bg-red-900/30 hover:bg-red-900/50 text-red-400 transition"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              onPageChange={setPage}
+            />
+          </>
         )}
       </div>
 
