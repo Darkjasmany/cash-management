@@ -24,11 +24,11 @@ api.interceptors.request.use(config => {
   return config;
 });
 
-// Response — maneja el 401 global
+// Response — maneja el 401 global (excepto en login)
 api.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !error.config?.url?.includes("/auth/login")) {
       useAuthStore.getState().logout();
       window.location.href = "/auth/login";
     }

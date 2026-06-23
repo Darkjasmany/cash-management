@@ -33,7 +33,7 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       {/* <App /> */}
       <Router />
-      <ToastContainer pauseOnHover={false} pauseOnFocusLoss={false} />
+      <ToastContainer position="top-right" theme="dark" autoClose={5000} pauseOnHover pauseOnFocusLoss={false} closeOnClick />
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   </StrictMode>
