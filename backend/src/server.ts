@@ -13,10 +13,12 @@ const startServer = async () => {
     siimClient.release();
     console.log("✅ Conectado al SIIM (lectura)");
 
-    app.listen(env!.PORT, () => {
-      console.log(`🚀 Servidor corriendo en http://localhost:${env!.PORT}`);
-      console.log(`📋 Ambiente: ${env!.NODE_ENV}`);
-      console.log(`🏥 Health check: http://localhost:${env!.PORT}/api/health`);
+    const port = env?.PORT || process.env.PORT || 3000;
+
+    app.listen(port, () => {
+      console.log(`🚀 Servidor corriendo en http://localhost:${port}`);
+      console.log(`📋 Ambiente: ${env?.NODE_ENV || process.env.NODE_ENV}`);
+      console.log(`🏥 Health check: http://localhost:${port}/api/health`);
     });
   } catch (error) {
     console.error("❌ Error al arrancar el servidor:", error);
