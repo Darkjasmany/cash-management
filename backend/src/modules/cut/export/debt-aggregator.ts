@@ -110,20 +110,36 @@ export class DebtAggregator {
   }
 
   static construirReferencia(g: GrupoArchivo): string {
-    const periodos = DebtAggregator.formatearPeriodos([...g.periodos].sort());
+    const periodosOrdenados = [...g.periodos].sort();
+
+    const textoPeriodosCompletos = DebtAggregator.formatearPeriodos(periodosOrdenados);
+    const textoRangoAgua =
+      periodosOrdenados.length > 1
+        ? `${periodosOrdenados[0]} a ${periodosOrdenados[periodosOrdenados.length - 1]}`
+        : periodosOrdenados[0];
+
     let ref: string;
-    if (g.id_modulo === MODULO_CATASTRO_URBANO) ref = `Catastro urbano anios ${periodos}`;
-    else if (g.id_modulo === MODULO_CATASTRO_RURAL) ref = `Catastro rural anios ${periodos}`;
-    else ref = `${g.refBaseAgua} Emisiones: ${periodos}`;
+
+    // Evaluar segun el módulo
+    if (g.id_modulo === MODULO_CATASTRO_URBANO)
+      ref = `Catastro urbano anios ${textoPeriodosCompletos}`;
+    else if (g.id_modulo === MODULO_CATASTRO_RURAL)
+      ref = `Catastro rural anios ${textoPeriodosCompletos}`;
+    else ref = `${g.refBaseAgua} Emisiones: ${textoRangoAgua}`;
+
+    // Sanitizamos la referencia
     return ref.replace(/Ñ/g, "N").replace(/ñ/g, "n").replace(/[:.]/g, "");
   }
 
   private static formatearPeriodos(lista: string[]): string {
     if (lista.length === 0) return "";
     if (lista.length === 1) return lista[0];
+
     const nums = lista.map(Number);
     const consecutivo = nums.every((n, i) => i === 0 || n === nums[i - 1] + 1);
+
     if (consecutivo) return `${lista[0]} a ${lista[lista.length - 1]}`;
+
     return lista.join(" ");
   }
 }
