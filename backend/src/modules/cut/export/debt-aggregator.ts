@@ -110,36 +110,33 @@ export class DebtAggregator {
   }
 
   static construirReferencia(g: GrupoArchivo): string {
-    const periodosOrdenados = [...g.periodos].sort();
+    const periodosUnicos = [...new Set(g.periodos)].sort();
 
-    const textoPeriodosCompletos = DebtAggregator.formatearPeriodos(periodosOrdenados);
-    const textoRangoAgua =
-      periodosOrdenados.length > 1
-        ? `${periodosOrdenados[0]} a ${periodosOrdenados[periodosOrdenados.length - 1]}`
-        : periodosOrdenados[0];
+    const textoRango =
+      periodosUnicos.length > 1
+        ? `${periodosUnicos[0]} a ${periodosUnicos[periodosUnicos.length - 1]}`
+        : periodosUnicos[0];
 
     let ref: string;
 
     // Evaluar segun el módulo
-    if (g.id_modulo === MODULO_CATASTRO_URBANO)
-      ref = `Catastro urbano anios ${textoPeriodosCompletos}`;
-    else if (g.id_modulo === MODULO_CATASTRO_RURAL)
-      ref = `Catastro rural anios ${textoPeriodosCompletos}`;
-    else ref = `${g.refBaseAgua} Emisiones: ${textoRangoAgua}`;
+    if (g.id_modulo === MODULO_CATASTRO_URBANO) ref = `Catastro urbano anios ${textoRango}`;
+    else if (g.id_modulo === MODULO_CATASTRO_RURAL) ref = `Catastro rural anios ${textoRango}`;
+    else ref = `${g.refBaseAgua} Emisiones: ${textoRango}`;
 
     // Sanitizamos la referencia
     return ref.replace(/Ñ/g, "N").replace(/ñ/g, "n").replace(/[:.]/g, "");
   }
 
-  private static formatearPeriodos(lista: string[]): string {
-    if (lista.length === 0) return "";
-    if (lista.length === 1) return lista[0];
+  // private static formatearPeriodos(lista: string[]): string {
+  //   if (lista.length === 0) return "";
+  //   if (lista.length === 1) return lista[0];
 
-    const nums = lista.map(Number);
-    const consecutivo = nums.every((n, i) => i === 0 || n === nums[i - 1] + 1);
+  //   const nums = lista.map(Number);
+  //   const consecutivo = nums.every((n, i) => i === 0 || n === nums[i - 1] + 1);
 
-    if (consecutivo) return `${lista[0]} a ${lista[lista.length - 1]}`;
+  //   if (consecutivo) return `${lista[0]} a ${lista[lista.length - 1]}`;
 
-    return lista.join(" ");
-  }
+  //   return lista.join(" ");
+  // }
 }
