@@ -29,6 +29,7 @@ function extraerRefBaseAgua(referencia: string): string {
   // const idx = referencia.indexOf(" Emisión:");
   // return idx > 0 ? referencia.substring(0, idx) : referencia;
   const match = referencia.match(/Emisi[oó]n:?\s*(\S+)/i);
+
   if (match && match.index !== undefined) {
     return referencia.substring(0, match.index).trim();
   }
@@ -126,6 +127,17 @@ export class DebtAggregator {
 
     // Sanitizamos la referencia
     return ref.replace(/Ñ/g, "N").replace(/ñ/g, "n").replace(/[:.]/g, "");
+  }
+
+  static nombreSanitizado(nombreCliente: string): string {
+    const nombreSanitizado = (nombreCliente || "")
+      .replace(/Ñ/g, "N")
+      .replace(/ñ/g, "n")
+      .replace(/[.,()+'\-]/g, "") // El guion (-) va al final para que no se confunda con un rango
+      .trim()
+      .slice(0, 30)
+      .trim();
+    return nombreSanitizado;
   }
 
   // private static formatearPeriodos(lista: string[]): string {

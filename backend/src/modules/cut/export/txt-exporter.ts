@@ -19,26 +19,18 @@ export class TxtExporter {
     if (grupos.length === 0) throw new Error("No hay datos en el corte activo.");
 
     const lineas = grupos.map(g => {
-      const nombreSanitizado = (g.nombreCliente || "")
-        .replace(/Ñ/g, "N")
-        .replace(/ñ/g, "n")
-        .replace(/[.,()+'\-]/g, "") // El guion (-) va al final para que no se confunda con un rango
-        .trim()
-        .substring(0, 30)
-        .trim();
-
       return [
         "CO",
-        g.contrapartida,
+        g.contrapartida.slice(0, 20),
         "USD",
         g.totalCentavos,
         "REC",
         "",
         "",
-        DebtAggregator.construirReferencia(g),
+        DebtAggregator.construirReferencia(g).slice(0, 50),
         "N", // g.tipoId,
         "", //g.numeroId,
-        nombreSanitizado,
+        DebtAggregator.nombreSanitizado(g.nombreCliente),
       ].join("\t");
     });
 
@@ -51,26 +43,19 @@ export class TxtExporter {
 
     const lineas = deudas.map(d => {
       const centavos = Math.round(parseFloat(d.totalFactura.toString()) * 100);
-      const nombreSanitizado = (d.nombreCliente || "")
-        .replace(/Ñ/g, "N")
-        .replace(/ñ/g, "n")
-        .replace(/[.,()+'\-]/g, "") // El guion (-) va al final para que no se confunda con un rango
-        .trim()
-        .substring(0, 30)
-        .trim();
 
       return [
         "CO",
-        d.contrapartida,
+        d.contrapartida.slice(0, 20),
         "USD",
         centavos,
         "REC",
         "",
         "",
-        d.referencia.replace(/:/g, "").replace(/ñ/g, "n").replace(/Ñ/g, "N"),
+        d.referencia.replace(/:/g, "").replace(/ñ/g, "n").replace(/Ñ/g, "N").slice(0, 50),
         "N", // d.tipoId,
         "", //d.numeroId,
-        nombreSanitizado,
+        DebtAggregator.nombreSanitizado(d.nombreCliente),
       ].join("\t");
     });
 
